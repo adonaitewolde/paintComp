@@ -1,0 +1,98 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# Frontend dependencies
+frontend/node_modules
+frontend/.pnp
+frontend/.pnp.*
+frontend/.yarn/*
+!frontend/.yarn/patches
+!frontend/.yarn/plugins
+!frontend/.yarn/releases
+!frontend/.yarn/versions
+
+# Frontend testing
+frontend/coverage
+
+# Next.js
+frontend/.next/
+frontend/out/
+frontend/public/
+
+# Frontend production
+frontend/build
+
+# Frontend misc
+*.pem
+
+# Frontend debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Frontend env files (can opt-in for committing if needed)
+frontend/.env*
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+
+# Vercel
+frontend/.vercel
+
+# TypeScript
+frontend/*.tsbuildinfo
+
+# Backend - Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Backend - Virtual environments
+backend/env/
+backend/venv/
+backend/ENV/
+backend/.venv/
+env/
+venv/
+ENV/
+.venv/
+
+# Backend - Testing
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.cover
+.hypothesis/
+
+# Backend - Distribution / packaging
+backend/dist/
+backend/build/
+*.egg-info/
+.eggs/
+
+# Backend - Environment variables
+backend/.env
+backend/.env.local
+backend/.env.*.local
+
+# Backend - IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
