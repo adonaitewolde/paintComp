@@ -57,10 +57,10 @@ Not all of these exist yet – they are planned features:
 
 **Frontend**
 
-- [Next.js](https://nextjs.org/) (React)
+- [Expo](https://expo.dev/) with [Expo Router](https://expo.github.io/router/) (React Native)
 - TypeScript
-- [Tailwind CSS](https://tailwindcss.com/) for styling
-- Fetching the backend via REST API
+- Styling handled with React Native style objects and Expo primitives
+- Communicates with the backend via REST API calls
 
 **Backend**
 
@@ -85,7 +85,7 @@ Not all of these exist yet – they are planned features:
 ## 🧬 High-Level Architecture
 
 ```text
-[ Next.js frontend ]  <--->  [ FastAPI backend + OpenCV ]  <--->  [ SQLite/Postgres + media storage ]
+[ Expo (React Native) frontend ]  <--->  [ FastAPI backend + OpenCV ]  <--->  [ SQLite/Postgres + media storage ]
 
         |
         |  HTTP (JSON, images)
@@ -184,17 +184,22 @@ uvicorn app.main:app --reload
 
 Backend runs at: **http://localhost:8000**
 
-**Note:** Make sure CORS is configured in FastAPI to allow requests from the Next.js frontend (typically `http://localhost:3000`).
+**Note:** Make sure CORS is configured in FastAPI to allow requests from the Expo dev server origins (Metro runs on `http://localhost:8081` by default; on-device testing may use your local IP).
 
 ⸻
 
-3. Frontend Setup (Next.js)
+3. Frontend Setup (Expo)
 
 ```bash
 cd frontend
 
 npm install
-npm run dev
+npm run start   # or: npx expo start
+
+# Optional shortcuts
+npm run android
+npm run ios
+npm run web
 ```
 
 **Environment Variables:**
@@ -202,21 +207,22 @@ npm run dev
 Create `frontend/.env.local`:
 
 ```env
-NEXT_PUBLIC_API_URL=http://localhost:8000
+EXPO_PUBLIC_API_URL=http://localhost:8000
 ```
 
-Frontend runs at: **http://localhost:3000**
+The Expo dev server runs via Metro bundler and serves native clients (iOS/Android simulators, Expo Go) or the web target.
 
 **Project Structure:**
 
 ```
 frontend/
-├── app/
-│   ├── layout.tsx       # Root layout
-│   ├── page.tsx         # Home page
-│   └── globals.css      # Global styles (Tailwind)
-├── public/              # Static assets
+├── app/                 # Expo Router routes (stacks, tabs, etc.)
+│   ├── _layout.tsx
+│   └── index.tsx
+├── app-example/         # Previous scaffold moved here by reset script
+├── assets/              # Images and icons used by Expo
 ├── package.json
+├── scripts/             # Utility scripts (e.g., reset-project)
 └── tsconfig.json
 ```
 

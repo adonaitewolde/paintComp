@@ -10,25 +10,32 @@ frontend/.yarn/*
 !frontend/.yarn/releases
 !frontend/.yarn/versions
 
-# Frontend testing
+# Frontend testing & builds
 frontend/coverage
-
-# Next.js
-frontend/.next/
-frontend/out/
-frontend/public/
-
-# Frontend production
 frontend/build
+frontend/dist
+frontend/web-build
 
 # Frontend misc
 *.pem
+frontend/.expo
+frontend/.expo/
+frontend/expo-env.d.ts
+frontend/app-example
+frontend/.kotlin/
+frontend/*.orig.*
+frontend/*.jks
+frontend/*.p8
+frontend/*.p12
+frontend/*.key
+frontend/*.mobileprovision
 
 # Frontend debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+frontend/.metro-health-check*
 
 # Frontend env files (can opt-in for committing if needed)
 frontend/.env*
