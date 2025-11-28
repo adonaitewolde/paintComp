@@ -17,7 +17,7 @@ export default function Index() {
       <Pressable
         onPress={() =>
           router.push({
-            pathname: "/canvas/[id]" as any,
+            pathname: "/canvas/[id]",
             params: { id: "test-123" },
           })
         }
