@@ -1,314 +1,347 @@
 # 🎨 RefBoard – Reference & Moodboard Tool for Artists
 
-RefBoard is a small prototype for a **reference companion app** for artists.
+RefBoard is a **reference companion app** for artists that runs completely offline.
 
-It helps you import reference images, simplify them (posterize, grayscale), flip/rotate them, and organize everything into boards – so drawing from reference becomes easier and more structured.
+It helps you import reference images, transform them (flip, rotate), organize everything into boards, and add custom grids and annotations – so drawing from reference becomes easier and more structured.
 
 > ⚠️ Work in progress – this is an early prototype (v0).  
 > The goal is to validate the core UX and image processing pipeline before adding more features.
 
 ---
 
-## ✨ Features (Prototype)
+## ✨ Features (Current & Planned)
 
-### Core
+### Core (Implemented)
 
 - 🧱 **Boards**
 
-  - Create boards (projects) and attach multiple reference images.
-  - Simple board overview page with thumbnails of all images.
+  - Create boards (projects) and attach multiple reference images
+  - Simple board overview with thumbnails of all images
+  - All data stored locally, works completely offline
 
-- 🖼️ **Image Upload**
+- 🖼️ **Image Import**
 
-  - Upload images into a board via the web UI.
-  - Images are stored on the server file system, metadata in the database.
+  - Import images from device gallery or camera
+  - Images stored locally on device
+  - Automatic thumbnail generation
 
-- 🎚️ **Image Operations (OpenCV, server-side)**
+- 🎚️ **Image Operations** (via React Native Skia)
 
-  - **Posterize** with adjustable levels (e.g. 2–8 steps)  
-    → helps to see big shapes and value blocks.
-  - **Grayscale toggle**  
-    → focus on values without color noise.
-  - **Flip Horizontal**  
-    → detect drawing mistakes and check composition.
-  - **Rotate in 90° steps**  
-    → fresh view on composition and shapes.
+  - **Flip Horizontal** → detect drawing mistakes and check composition
+  - **Rotate in 90° steps** → fresh view on composition and shapes
+  - All transformations rendered in real-time using Skia's native graphics engine
+  - More transformations coming soon (posterize, grayscale)
 
 - 🧮 **Settings per image**
-  - Each image can store its own settings: posterize level, grayscale on/off, flip, rotation, etc.
-  - Settings are stored in the database and used when rendering the image.
+  - Each image can store its own settings: flip, rotation, etc.
+  - Settings persisted in local database
 
----
+### Planned / Roadmap
 
-## 🧱 Planned / Roadmap
-
-Not all of these exist yet – they are planned features:
-
-- 🎯 Custom grids (rows/cols, opacity, presets like rule-of-thirds)
-- 🎨 Color clustering / palette extraction from references
-- 📝 Notes pinned to positions on the image
-- 🧩 Multiple boards, tags, and filters (moodboard-style workflow)
-- 👤 User accounts & authentication
-- 🖥️ Desktop app using Tauri (later), reusing the same core logic
+- 🎯 **Custom grids** (rows/cols, opacity, presets like rule-of-thirds)
+- 🎨 **Color clustering / palette extraction** from references
+- 📝 **Notes pinned to positions** on the image
+- 🧩 **Tags and filters** (moodboard-style workflow)
+- 🖼️ **Advanced image processing** (posterize, grayscale via Skia filters)
+- 📤 **Project import/export** (backup & share boards)
 
 ---
 
 ## 🏗️ Tech Stack
 
-**Frontend**
+**Core Framework**
 
 - [Expo](https://expo.dev/) with [Expo Router](https://expo.github.io/router/) (React Native)
 - TypeScript
-- Styling handled with React Native style objects and Expo primitives
-- Communicates with the backend via REST API calls
+- React Native with modern hooks and patterns
 
-**Backend**
+**Storage & Data**
 
-- [FastAPI](https://fastapi.tiangolo.com/)
-- [OpenCV](https://opencv.org/) for image operations
-- [SQLModel](https://sqlmodel.tiangolo.com/) (ORM built on SQLAlchemy)
-- [Alembic](https://alembic.sqlalchemy.org/) for database migrations
-- [uv](https://github.com/astral-sh/uv) for Python package management
+- [expo-sqlite](https://docs.expo.dev/versions/latest/sdk/sqlite/) – SQLite database for structured data (boards, images, metadata)
+- [react-native-mmkv](https://github.com/mrousavy/react-native-mmkv) – Fast key-value storage for settings and cache
+- [expo-file-system](https://docs.expo.dev/versions/latest/sdk/filesystem/) – Local file storage for images
 
-**Database**
+**Graphics & Image Processing**
 
-- Prototype: **SQLite** (simple `app.db` file)
-- Later: **PostgreSQL** (drop-in replacement with minimal changes)
+- [@shopify/react-native-skia](https://shopify.github.io/react-native-skia/) – Native 2D graphics engine for:
+  - **Image transformations** (flip, rotate, scale, filters)
+  - **Canvas operations** (grids, overlays, annotations)
+  - **Real-time rendering** with native performance
+- [expo-image](https://docs.expo.dev/versions/latest/sdk/image/) – Optimized image loading and caching
+- [react-native-reanimated](https://docs.swmansion.com/react-native-reanimated/) – Smooth animations and gestures
+- [react-native-gesture-handler](https://docs.swmansion.com/react-native-gesture-handler/) – Native gesture handling
 
-**Storage**
+**Performance**
 
-- Local filesystem for images, for example:
-  - `media/boards/{board_id}/{image_id}.jpg`
+- React Native Worklets for off-thread operations
+- Optimized image caching and thumbnail generation
+- Efficient database queries with SQLite
 
 ---
 
-## 🧬 High-Level Architecture
+## 🧬 Architecture
 
-```text
-[ Expo (React Native) frontend ]  <--->  [ FastAPI backend + OpenCV ]  <--->  [ SQLite/Postgres + media storage ]
+```
+┌─────────────────────────────────────────────┐
+│         React Native + Expo App             │
+│                                             │
+│  ┌──────────────────────────────────────┐  │
+│  │   UI Layer (Expo Router)            │  │
+│  │   - Screens & Navigation             │  │
+│  └──────────────────────────────────────┘  │
+│              │                               │
+│  ┌───────────┴───────────┐                 │
+│  │   Business Logic      │                 │
+│  │   - Custom Hooks      │                 │
+│  │   - Services          │                 │
+│  └───────────┬───────────┘                 │
+│              │                               │
+│  ┌───────────┴───────────┐                 │
+│  │   Data Layer          │                 │
+│  │                       │                 │
+│  │  • SQLite (expo-sqlite)               │  │
+│  │    → Boards, Images, Metadata         │  │
+│  │                       │                 │
+│  │  • MMKV                               │  │
+│  │    → Settings, Cache, Preferences     │  │
+│  │                       │                 │
+│  │  • File System (expo-file-system)     │  │
+│  │    → Original Images, Thumbnails       │  │
+│  └───────────────────────────────────────┘  │
+│                                             │
+│  ┌──────────────────────────────────────┐  │
+│  │   Graphics Layer (Skia)              │  │
+│  │   - Image Transformations            │  │
+│  │     (Flip, Rotate, Filters)          │  │
+│  │   - Canvas Operations                │  │
+│  │   - Grids & Overlays                 │  │
+│  │   - Annotations                       │  │
+│  └──────────────────────────────────────┘  │
+└─────────────────────────────────────────────┘
 
-        |
-        |  HTTP (JSON, images)
-        v
-   Boards, Images, Settings, Rendered Image
-
-	•	Frontend calls REST endpoints to:
-	•	list boards
-	•	create boards
-	•	upload images
-	•	get image metadata
-	•	update image settings
-	•	fetch rendered image (with transformations applied)
-	•	Backend:
-	•	accepts image uploads
-	•	stores originals (resized/optimized) on disk
-	•	stores metadata + settings in the DB
-	•	renders transformed images on-the-fly via OpenCV
+All data stored locally - 100% offline capable
 ```
 
-⸻
+**Key Principles:**
 
-🚀 Getting Started
+- **Offline-First**: All data stored locally, no server required
+- **Performance**: Native modules (Skia, MMKV) for optimal speed
+- **Type Safety**: Full TypeScript coverage
+- **Modular**: Clear separation between UI, business logic, and data layer
 
-1. Requirements
-   • Node.js (LTS)
-   • Python 3.13+
-   • [uv](https://github.com/astral-sh/uv) (Python package manager)
-   • (Prototype) no external DB needed – SQLite is enough.
+---
 
-⸻
+## 🚀 Getting Started
 
-2. Backend Setup (FastAPI + OpenCV)
+### Requirements
+
+- Node.js (LTS version, 18+)
+- npm or yarn
+- iOS Simulator (for iOS development) or Android Studio (for Android)
+- For physical devices: Expo Go app (iOS/Android)
+
+### Installation
+
+1. **Clone the repository**
 
 ```bash
-cd backend
-
-# Install dependencies using uv
-uv sync
-
-# Or if you prefer to use a virtual environment:
-uv venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
-uv pip install -e .
+   git clone <repository-url>
+   cd paintComp
 ```
 
-**Project Structure:**
-
-```
-backend/
-├── app/
-│   ├── main.py          # FastAPI app entry point
-│   ├── endpoints/       # API route handlers
-│   ├── models/          # SQLModel database models
-│   └── services/        # Business logic (image processing, etc.)
-├── pyproject.toml       # Project dependencies
-└── uv.lock              # Locked dependency versions
-```
-
-**Database Setup:**
-
-Initialize the database and run migrations:
+2. **Install dependencies**
 
 ```bash
-# Create initial migration (if not exists)
-alembic init alembic
-
-# Create a new migration
-alembic revision --autogenerate -m "Initial schema"
-
-# Apply migrations
-alembic upgrade head
-```
-
-Or, for the simplest setup, create tables on startup (see `app/main.py`).
-
-**Environment Variables:**
-
-Create `backend/.env` (optional for prototype):
-
-```env
-DATABASE_URL=sqlite:///./app.db
-MEDIA_ROOT=./media
-CORS_ORIGINS=http://localhost:3000
-```
-
-**Start Backend:**
-
-```bash
-# Using uv
-uv run uvicorn app.main:app --reload
-
-# Or if virtual env is activated
-uvicorn app.main:app --reload
-```
-
-Backend runs at: **http://localhost:8000**
-
-**Note:** Make sure CORS is configured in FastAPI to allow requests from the Expo dev server origins (Metro runs on `http://localhost:8081` by default; on-device testing may use your local IP).
-
-⸻
-
-3. Frontend Setup (Expo)
-
-```bash
-cd frontend
-
 npm install
-npm run start   # or: npx expo start
-
-# Optional shortcuts
-npm run android
-npm run ios
-npm run web
 ```
 
-**Environment Variables:**
+3. **Start the development server**
 
-Create `frontend/.env.local`:
+   ```bash
+   npm start
+   # or
+   npx expo start
+   ```
 
-```env
-EXPO_PUBLIC_API_URL=http://localhost:8000
+4. **Run on your device/simulator**
+   - Press `i` for iOS simulator
+   - Press `a` for Android emulator
+   - Scan QR code with Expo Go app for physical device
+   - Press `w` for web (limited functionality)
+
+### Project Structure
+
 ```
-
-The Expo dev server runs via Metro bundler and serves native clients (iOS/Android simulators, Expo Go) or the web target.
-
-**Project Structure:**
-
-```
-frontend/
-├── app/                 # Expo Router routes (stacks, tabs, etc.)
-│   ├── _layout.tsx
-│   └── index.tsx
-├── app-example/         # Previous scaffold moved here by reset script
-├── assets/              # Images and icons used by Expo
+├── app/                    # Expo Router routes
+│   ├── _layout.tsx         # Root layout
+│   └── index.tsx           # Home screen
+├── src/                    # Source code (to be organized)
+│   ├── components/         # React components
+│   ├── hooks/              # Custom React hooks
+│   ├── services/           # Business logic
+│   │   ├── database/       # SQLite operations
+│   │   ├── storage/        # MMKV operations
+│   │   └── images/         # Image processing (Skia transformations)
+│   ├── types/              # TypeScript types
+│   └── utils/              # Utility functions
+├── assets/                 # Images, fonts, etc.
+├── app.json                # Expo configuration
 ├── package.json
-├── scripts/             # Utility scripts (e.g., reset-project)
 └── tsconfig.json
 ```
 
-⸻
+---
 
-🔗 API Overview (Prototype)
+## 🗄️ Data Storage
 
-Boards
-• GET /boards
-List boards.
-• POST /boards
-Create board.
-Body: { "name": "Portrait Studies" }
-• GET /boards/{board_id}
-Get board + images.
+### SQLite Database
 
-Images
-• POST /boards/{board_id}/images
-Upload image (multipart form).
-• GET /images/{image_id}
-Get metadata.
-• PATCH /images/{image_id}/settings
-Update posterize, grayscale, flip, rotation.
-• GET /images/{image_id}/render?...
-Transform image with OpenCV and return PNG/JPEG.
+Stores structured data:
 
-Example:
+- **Boards**: Projects/collections
+- **Images**: Image metadata, settings, relationships
+- **Tags**: (Future) Tag system
+- **Notes**: (Future) Annotations on images
 
-GET /images/abcd/render?posterize=4&grayscale=true&flipX=true&rotation=90
+Database location: Managed by `expo-sqlite`, stored in app's document directory.
 
-⸻
+### MMKV Storage
 
-🧪 Development Notes
+Fast key-value storage for:
 
-**Database:**
-• Prototype uses SQLite (`app.db` in backend directory)
-• Use SQLiteStudio, DB Browser for SQLite, or TablePlus to inspect.
-• Database migrations managed via Alembic
+- User preferences
+- App settings
+- Cache keys
+- Temporary state
 
-**Media Storage:**
-• Images stored in `backend/media/boards/{board_id}/{image_id}.jpg`
-• Create `backend/media/` directory if it doesn't exist (gitignored)
-• Images should be resized on upload (e.g. max 4000px) to keep storage small.
-• JPEG/WebP recommended for photos.
+### File System
 
-**Development Tools:**
-• **Testing:** `pytest` (backend) - run with `uv run pytest`
-• **Linting:** `ruff` (backend) - run with `uv run ruff check .`
-• **Linting:** `eslint` (frontend) - run with `npm run lint`
-• **Type checking:** TypeScript in frontend, Pydantic in backend
+Images stored in app's document directory:
 
-⸻
+```
+{FileSystem.documentDirectory}/
+  └── images/
+      └── {boardId}/
+          ├── {imageId}.jpg          # Original image
+          └── {imageId}_thumb.jpg    # Thumbnail
+```
 
-🗺️ Roadmap
+---
 
-Short-term:
-• Custom grids (rows/cols, opacity, rule-of-thirds)
-• Color palette extraction
-• Notes on images
-• Better viewer UI (keyboard shortcuts)
+## 🧪 Development
 
-Long-term:
-• User accounts
-• Tags & filters
-• Project import/export
-• Desktop app with Tauri
-• Advanced image analysis
+### Type Checking
 
-⸻
+```bash
+npm run type-check
+# or
+npx tsc --noEmit
+```
 
-📝 License
+### Linting
+
+```bash
+npm run lint
+```
+
+### Database Inspection
+
+For debugging, you can inspect the SQLite database:
+
+- Use [SQLite Viewer](https://sqliteviewer.app/) or similar tools
+- Database file location: `{FileSystem.documentDirectory}/SQLite/refboard.db` (or similar, depending on your setup)
+
+### Image Storage Location
+
+Images are stored in the app's document directory. On iOS/Android, you can access them via:
+
+- `expo-file-system` APIs to list files programmatically
+
+---
+
+## 🗺️ Roadmap
+
+### Short-term
+
+- ✅ Basic board and image management
+- ✅ Image import from gallery/camera
+- ✅ Flip and rotate operations
+- 🚧 Custom grids (rows/cols, opacity, rule-of-thirds)
+- 🚧 Notes on images
+- 🚧 Better viewer UI with gestures
+
+### Medium-term
+
+- Color palette extraction
+- Advanced image processing (posterize, grayscale via Skia image filters)
+- Tags & filters
+- Project import/export
+
+### Long-term
+
+- Desktop app with Tauri
+- Cloud sync (optional)
+- Advanced image analysis
+- Collaboration features
+
+---
+
+## 📝 License
 
 TBD (MIT recommended).
 
-⸻
+---
 
-🤝 Contributing
+## 🤝 Contributing
 
 This is an experimental personal project.
 Issues, suggestions and PRs welcome.
 
-⸻
+---
 
-💡 Vision
+## 💡 Vision
 
-A modern reference and moodboard tool for artists that blends:
-• the flexibility of PureRef-style boards
-• with intelligent analysis tools (posterize, values, palettes, grids, notes)
-• and eventually a desktop app for a seamless workflow next to any drawing software.
+A modern reference and moodboard tool for artists that:
+
+- Works completely offline – no internet required
+- Provides intelligent analysis tools (posterize, values, palettes, grids, notes)
+- Offers a seamless mobile experience
+- Eventually expands to desktop for a complete workflow next to any drawing software
+
+---
+
+## 🔧 Troubleshooting
+
+### Common Issues
+
+**"Module not found" errors**
+
+- Run `npm install` again
+- Clear Metro cache: `npx expo start -c`
+
+**Database not initializing**
+
+- Check that `expo-sqlite` is properly installed
+- Verify app has file system permissions
+
+**Images not loading**
+
+- Check file system permissions
+- Verify images are being saved to correct directory
+- Check `expo-file-system` documentation for path issues
+
+**Skia not working**
+
+- Ensure you're using a development build (not Expo Go for native modules)
+- Check that `@shopify/react-native-skia` is properly installed
+- Rebuild native code if needed: `npx expo prebuild`
+
+---
+
+## 📚 Resources
+
+- [Expo Documentation](https://docs.expo.dev/)
+- [React Native Skia](https://shopify.github.io/react-native-skia/)
+- [expo-sqlite](https://docs.expo.dev/versions/latest/sdk/sqlite/)
+- [react-native-mmkv](https://github.com/mrousavy/react-native-mmkv)
+- [Expo Router](https://expo.github.io/router/)
