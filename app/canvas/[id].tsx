@@ -14,6 +14,9 @@ const DEFAULT_IMAGE_SIZE = 300;
 
 export default function CanvasScreen() {
   const [importedImages, setImportedImages] = useState<ImageData[]>([]);
+  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(
+    null
+  );
   const currentTransform = useRef({ x: 0, y: 0 });
 
   const handleImportPress = async () => {
@@ -160,11 +163,27 @@ export default function CanvasScreen() {
     currentTransform.current = { x: translateX, y: translateY };
   };
 
+  // Handle image position updates when dragging
+  const handleImageMove = (index: number, x: number, y: number) => {
+    setImportedImages((prev) => {
+      const updated = [...prev];
+      updated[index] = {
+        ...updated[index],
+        x,
+        y,
+      };
+      return updated;
+    });
+  };
+
   return (
     <View style={styles.container}>
       <BoardCanvas
         images={importedImages}
         onTransformChange={handleTransformChange}
+        selectedImageIndex={selectedImageIndex}
+        onImageSelect={setSelectedImageIndex}
+        onImageMove={handleImageMove}
       />
       <ImportButton onPress={handleImportPress} />
     </View>
