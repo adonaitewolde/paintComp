@@ -24,4 +24,3 @@ export const createGridPath = (
 
   return path;
 };
-

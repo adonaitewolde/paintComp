@@ -2,6 +2,7 @@ import { Canvas, Group, Path } from "@shopify/react-native-skia";
 import React, { useMemo } from "react";
 import { Dimensions, View } from "react-native";
 import { GestureDetector } from "react-native-gesture-handler";
+import { runOnJS, useAnimatedReaction } from "react-native-reanimated";
 import { useBoardTransform } from "../hooks/useBoardTransform";
 import { usePanGesture } from "../hooks/usePanGesture";
 import { createGridPath } from "../utils/gridUtils";
@@ -12,14 +13,26 @@ const { width, height } = Dimensions.get("window");
 const GRID_SPACING = 20;
 const WORLD_SIZE_MULTIPLIER = 8;
 
+export type ImageData = {
+  uri: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
 type BoardCanvasProps = {
   backgroundColor?: string;
   imageUris?: string[];
+  images?: ImageData[];
+  onTransformChange?: (translateX: number, translateY: number) => void;
 };
 
 function BoardCanvasComponent({
   backgroundColor = "#050608",
   imageUris = [],
+  images = [],
+  onTransformChange,
 }: BoardCanvasProps) {
   const { panGesture, translateX, translateY } = usePanGesture();
 
@@ -34,6 +47,31 @@ function BoardCanvasComponent({
     width,
     height
   );
+
+  // Expose transform values to parent using animated reaction
+  useAnimatedReaction(
+    () => {
+      return { x: translateX.value, y: translateY.value };
+    },
+    (current) => {
+      if (onTransformChange) {
+        runOnJS(onTransformChange)(current.x, current.y);
+      }
+    },
+    [onTransformChange]
+  );
+
+  // Support both old imageUris format and new images format
+  const displayImages =
+    images.length > 0
+      ? images
+      : imageUris.map((uri, index) => ({
+          uri,
+          x: index * 50,
+          y: index * 50,
+          width: 200,
+          height: 200,
+        }));
 
   return (
     <View style={{ flex: 1, backgroundColor }}>
@@ -51,8 +89,15 @@ function BoardCanvasComponent({
 
           {/* Nur die Bilder werden verschoben */}
           <Group matrix={boardTransform}>
-            {imageUris.map((uri, index) => (
-              <ImageLayer key={`${uri}-${index}`} uri={uri} index={index} />
+            {displayImages.map((image, index) => (
+              <ImageLayer
+                key={`${image.uri}-${index}`}
+                uri={image.uri}
+                x={image.x}
+                y={image.y}
+                width={image.width}
+                height={image.height}
+              />
             ))}
           </Group>
         </Canvas>
