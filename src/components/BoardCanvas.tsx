@@ -1,10 +1,12 @@
-import { Canvas, Group, Path } from "@shopify/react-native-skia";
-import React, { useMemo, useRef } from "react";
+import { Canvas, Group, Path, Skia } from "@shopify/react-native-skia";
+import React, { useEffect, useMemo } from "react";
 import { Dimensions, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import {
   runOnJS,
+  SharedValue,
   useAnimatedReaction,
+  useDerivedValue,
   useSharedValue,
 } from "react-native-reanimated";
 import { useBoardTransform } from "../hooks/useBoardTransform";
@@ -17,6 +19,46 @@ const { width, height } = Dimensions.get("window");
 
 const GRID_SPACING = 20;
 const WORLD_SIZE_MULTIPLIER = 8;
+
+// Component for animating image position on UI thread
+type AnimatedImageWrapperProps = {
+  imageIndex: number;
+  imagePositions: SharedValue<{ x: number; y: number }[]>;
+  image: ImageData;
+  isSelected: boolean;
+};
+
+function AnimatedImageWrapper({
+  imageIndex,
+  imagePositions,
+  image,
+  isSelected,
+}: AnimatedImageWrapperProps) {
+  // Create animated matrix for this image using derived values
+  // This runs entirely on UI thread - no JS bridge crossing!
+  const imageMatrix = useDerivedValue(() => {
+    const positions = imagePositions.value;
+    const pos = positions[imageIndex];
+    const matrix = Skia.Matrix();
+    if (pos) {
+      matrix.translate(pos.x, pos.y);
+    }
+    return matrix;
+  });
+
+  return (
+    <Group matrix={imageMatrix}>
+      <ImageLayer
+        uri={image.uri}
+        x={0}
+        y={0}
+        width={image.width}
+        height={image.height}
+        isSelected={isSelected}
+      />
+    </Group>
+  );
+}
 
 export type ImageData = {
   uri: string;
@@ -46,9 +88,20 @@ function BoardCanvasComponent({
   onImageMove,
 }: BoardCanvasProps) {
   const { panGesture, translateX, translateY } = usePanGesture();
-  const dragStartPosition = useRef<{ x: number; y: number } | null>(null);
-  const selectedImageStartPos = useRef<{ x: number; y: number } | null>(null);
   const isDragging = useSharedValue(false); // Track drag state on UI thread
+
+  // Store all image positions in a single shared value (array of {x, y})
+  // This avoids the hook count issue - we only have one hook!
+  const imagePositions = useSharedValue<{ x: number; y: number }[]>([]);
+
+  // Drag state stored on UI thread
+  const dragStartScreenPos = useSharedValue<{ x: number; y: number } | null>(
+    null
+  );
+  const dragStartImagePos = useSharedValue<{ x: number; y: number } | null>(
+    null
+  );
+  const draggingImageIndex = useSharedValue<number | null>(null);
 
   const gridPath = useMemo(
     () => createGridPath(width, height, GRID_SPACING, WORLD_SIZE_MULTIPLIER),
@@ -90,12 +143,28 @@ function BoardCanvasComponent({
     [images, imageUris]
   );
 
+  // Sync positions from props to shared values (only when not dragging)
+  useEffect(() => {
+    const currentPositions = imagePositions.value;
+    const needsUpdate =
+      currentPositions.length !== displayImages.length ||
+      displayImages.some((img, index) => {
+        const current = currentPositions[index];
+        return !current || current.x !== img.x || current.y !== img.y;
+      });
+
+    if (needsUpdate && draggingImageIndex.value === null) {
+      // Only update if not currently dragging
+      imagePositions.value = displayImages.map((img) => ({
+        x: img.x,
+        y: img.y,
+      }));
+    }
+  }, [displayImages, imagePositions, draggingImageIndex]);
+
   // Create worklet with closure capture - recreates when images change
   // This keeps ALL hit testing on UI thread, no ref serialization issues
   const performHitTest = useMemo(() => {
-    // Capture current images array in closure - worklet will have access to it
-    const currentImages = displayImages;
-
     return (screenX: number, screenY: number): number | null => {
       "worklet";
 
@@ -107,14 +176,25 @@ function BoardCanvasComponent({
       const canvasX = screenX - tx;
       const canvasY = screenY - ty;
 
-      // Hit test using captured images array (ALL on UI thread!)
-      for (let i = currentImages.length - 1; i >= 0; i--) {
-        const img = currentImages[i];
+      // Get current positions from shared value (UI thread)
+      const positions = imagePositions.value;
+
+      // Hit test using shared values (ALL on UI thread!)
+      for (let i = positions.length - 1; i >= 0; i--) {
+        const pos = positions[i];
+        if (!pos) continue;
+
+        const imgX = pos.x;
+        const imgY = pos.y;
+        // Use displayImages for width/height (static values)
+        const img = displayImages[i];
+        if (!img) continue;
+
         if (
-          canvasX >= img.x &&
-          canvasX <= img.x + img.width &&
-          canvasY >= img.y &&
-          canvasY <= img.y + img.height
+          canvasX >= imgX &&
+          canvasX <= imgX + img.width &&
+          canvasY >= imgY &&
+          canvasY <= imgY + img.height
         ) {
           return i;
         }
@@ -122,7 +202,7 @@ function BoardCanvasComponent({
 
       return null;
     };
-  }, [displayImages, translateX, translateY]); // Recreate when images change
+  }, [displayImages, translateX, translateY, imagePositions]); // Recreate when images change
 
   // Handle tap gesture for image selection
   const handleTap = (hitIndex: number | null) => {
@@ -139,7 +219,6 @@ function BoardCanvasComponent({
   // Returns the image index if drag should activate, null otherwise
   const checkDragStart = useMemo(() => {
     const currentSelectedIndex = selectedImageIndex;
-    const currentImages = displayImages;
 
     return (screenX: number, screenY: number): number | null => {
       "worklet";
@@ -151,60 +230,54 @@ function BoardCanvasComponent({
       const canvasX = screenX - tx;
       const canvasY = screenY - ty;
 
-      const selectedImage = currentImages[currentSelectedIndex];
+      const positions = imagePositions.value;
+      if (currentSelectedIndex >= positions.length) return null;
+
+      const pos = positions[currentSelectedIndex];
+      if (!pos) return null;
+
+      const imgX = pos.x;
+      const imgY = pos.y;
+      const img = displayImages[currentSelectedIndex];
+      if (!img) return null;
+
       const isOnImage =
-        canvasX >= selectedImage.x &&
-        canvasX <= selectedImage.x + selectedImage.width &&
-        canvasY >= selectedImage.y &&
-        canvasY <= selectedImage.y + selectedImage.height;
+        canvasX >= imgX &&
+        canvasX <= imgX + img.width &&
+        canvasY >= imgY &&
+        canvasY <= imgY + img.height;
 
       return isOnImage ? currentSelectedIndex : null;
     };
-  }, [selectedImageIndex, displayImages, translateX, translateY]);
+  }, [
+    selectedImageIndex,
+    displayImages,
+    translateX,
+    translateY,
+    imagePositions,
+  ]);
 
-  // Handle drag start - store initial positions
-  const handleDragStart = (
-    screenX: number,
-    screenY: number,
-    imageIndex: number
-  ) => {
-    if (!onImageMove) return;
-
-    const selectedImage = displayImages[imageIndex];
-    dragStartPosition.current = { x: screenX, y: screenY };
-    selectedImageStartPos.current = { x: selectedImage.x, y: selectedImage.y };
-    // Note: isDragging.value is already set in worklet context
-  };
-
-  // Handle drag update - calculate new position
-  const handleDragUpdate = (
-    screenX: number,
-    screenY: number,
-    imageIndex: number
-  ) => {
-    if (
-      !onImageMove ||
-      !dragStartPosition.current ||
-      !selectedImageStartPos.current
-    ) {
+  // Handle drag end - sync position back to JS thread
+  const handleDragEnd = (imageIndex: number | null) => {
+    if (!onImageMove || imageIndex === null || imageIndex < 0) {
+      draggingImageIndex.value = null;
+      dragStartScreenPos.value = null;
+      dragStartImagePos.value = null;
+      isDragging.value = false;
       return;
     }
 
-    // Calculate drag delta in screen space
-    const deltaX = screenX - dragStartPosition.current.x;
-    const deltaY = screenY - dragStartPosition.current.y;
+    const positions = imagePositions.value;
+    const pos = positions[imageIndex];
+    if (pos) {
+      // Sync final position back to JS thread
+      onImageMove(imageIndex, pos.x, pos.y);
+    }
 
-    // Apply delta directly to canvas coordinates (no transform needed for delta)
-    const newX = selectedImageStartPos.current.x + deltaX;
-    const newY = selectedImageStartPos.current.y + deltaY;
-
-    onImageMove(imageIndex, newX, newY);
-  };
-
-  const handleDragEnd = () => {
-    dragStartPosition.current = null;
-    selectedImageStartPos.current = null;
-    isDragging.value = false; // Mark drag as inactive
+    draggingImageIndex.value = null;
+    dragStartScreenPos.value = null;
+    dragStartImagePos.value = null;
+    isDragging.value = false;
   };
 
   const tapGesture = Gesture.Tap()
@@ -217,7 +290,7 @@ function BoardCanvasComponent({
       runOnJS(handleTap)(hitIndex);
     });
 
-  // Drag gesture for selected images
+  // Drag gesture for selected images - ALL updates on UI thread!
   const dragGesture = Gesture.Pan()
     .manualActivation(true) // Manual control - we decide when to activate
     .onTouchesDown((e, manager) => {
@@ -229,25 +302,57 @@ function BoardCanvasComponent({
 
       if (imageIndex !== null) {
         isDragging.value = true; // Set drag state immediately on UI thread
+        draggingImageIndex.value = imageIndex;
+
+        // Store start positions on UI thread
+        dragStartScreenPos.value = {
+          x: e.allTouches[0].x,
+          y: e.allTouches[0].y,
+        };
+
+        const positions = imagePositions.value;
+        const pos = positions[imageIndex];
+        if (pos) {
+          dragStartImagePos.value = {
+            x: pos.x,
+            y: pos.y,
+          };
+        }
+
         manager.activate(); // Activate drag - it will handle the gesture
-        runOnJS(handleDragStart)(
-          e.allTouches[0].x,
-          e.allTouches[0].y,
-          imageIndex
-        );
       } else {
         manager.fail(); // Explicitly fail - allows pan to take over
       }
     })
     .onUpdate((e) => {
-      // Always call update handler - it will check if drag is active in JS context
-      // Don't check refs in worklet to avoid serialization warnings
-      if (selectedImageIndex !== null) {
-        runOnJS(handleDragUpdate)(e.x, e.y, selectedImageIndex);
-      }
+      "worklet";
+
+      // ALL drag updates happen on UI thread - no JS bridge crossing!
+      const imageIndex = draggingImageIndex.value;
+      if (imageIndex === null) return;
+
+      const startScreen = dragStartScreenPos.value;
+      const startImage = dragStartImagePos.value;
+
+      if (!startScreen || !startImage) return;
+
+      // Calculate delta in screen space
+      const deltaX = e.x - startScreen.x;
+      const deltaY = e.y - startScreen.y;
+
+      // Update position directly on UI thread - no flickering!
+      const positions = imagePositions.value;
+      const newPositions = [...positions];
+      newPositions[imageIndex] = {
+        x: startImage.x + deltaX,
+        y: startImage.y + deltaY,
+      };
+      imagePositions.value = newPositions;
     })
     .onEnd(() => {
-      runOnJS(handleDragEnd)();
+      "worklet";
+      const imageIndex = draggingImageIndex.value;
+      runOnJS(handleDragEnd)(imageIndex);
     });
 
   // Pan gesture - should fail when drag is active or should activate
@@ -293,13 +398,11 @@ function BoardCanvasComponent({
           {/* Nur die Bilder werden verschoben */}
           <Group matrix={boardTransform}>
             {displayImages.map((image, index) => (
-              <ImageLayer
+              <AnimatedImageWrapper
                 key={`${image.uri}-${index}`}
-                uri={image.uri}
-                x={image.x}
-                y={image.y}
-                width={image.width}
-                height={image.height}
+                imageIndex={index}
+                imagePositions={imagePositions}
+                image={image}
                 isSelected={selectedImageIndex === index}
               />
             ))}
