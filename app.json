@@ -1,16 +1,16 @@
 {
   "expo": {
-    "name": "frontend",
-    "slug": "frontend",
+    "name": "Reffect",
+    "slug": "reffect",
     "version": "1.0.0",
     "orientation": "portrait",
-    "scheme": "frontend",
+    "scheme": "reffect",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "backgroundColor": "#050608",
-      "bundleIdentifier": "com.ado0810.frontend"
+      "bundleIdentifier": "com.ado0810.reffect"
     },
     "android": {
       "adaptiveIcon": {
@@ -19,10 +19,8 @@
       "backgroundColor": "#050608",
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "permissions": [
-        "android.permission.RECORD_AUDIO"
-      ],
-      "package": "com.ado0810.frontend"
+      "permissions": ["android.permission.RECORD_AUDIO"],
+      "package": "com.ado0810.reffect"
     },
     "web": {
       "output": "static",
