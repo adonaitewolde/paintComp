@@ -1,5 +1,6 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, ViewStyle } from "react-native";
+import { borderRadius, colors, spacing } from "../utils/designTokens";
 
 type ImportButtonProps = {
   onPress: () => void;
@@ -22,17 +23,17 @@ export function ImportButton({
 const styles = StyleSheet.create({
   button: {
     position: "absolute",
-    bottom: 24,
-    left: 24,
+    bottom: spacing.xl,
+    left: spacing.xl,
     width: 56,
     height: 56,
-    backgroundColor: "#1A1A1A",
-    borderRadius: 12,
+    backgroundColor: colors.background.secondary,
+    borderRadius: borderRadius.md,
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#000",
+    shadowColor: colors.shadow,
     shadowOffset: {
-      width: 0,
+      width: 2,
       height: 2,
     },
     shadowOpacity: 0.25,
@@ -40,7 +41,7 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   icon: {
-    color: "#FFFFFF",
+    color: colors.text.primary,
     fontSize: 40,
     fontWeight: "300",
     lineHeight: 40,

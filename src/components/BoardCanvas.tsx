@@ -9,6 +9,7 @@ import {
 } from "react-native-reanimated";
 import { useBoardTransform } from "../hooks/useBoardTransform";
 import { usePanGesture } from "../hooks/usePanGesture";
+import { colors } from "../utils/designTokens";
 import { createGridPath } from "../utils/gridUtils";
 import { ImageLayer } from "./ImageLayer";
 
@@ -36,7 +37,7 @@ type BoardCanvasProps = {
 };
 
 function BoardCanvasComponent({
-  backgroundColor = "#050608",
+  backgroundColor = colors.background.primary,
   imageUris = [],
   images = [],
   onTransformChange,
@@ -283,7 +284,7 @@ function BoardCanvasComponent({
           <Group>
             <Path
               path={gridPath}
-              color="rgb(24, 24, 24)"
+              color={colors.border.grid}
               style="stroke"
               strokeWidth={1.5}
             />

@@ -1,5 +1,6 @@
 import { useRouter } from "expo-router";
 import { Pressable, Text, View } from "react-native";
+import { borderRadius, colors, spacing } from "../src/utils/designTokens";
 
 export default function Index() {
   const router = useRouter();
@@ -22,12 +23,14 @@ export default function Index() {
           })
         }
         style={{
-          padding: 16,
-          backgroundColor: "#007AFF",
-          borderRadius: 8,
+          padding: spacing.lg,
+          backgroundColor: colors.accent.primary,
+          borderRadius: borderRadius.sm,
         }}
       >
-        <Text style={{ color: "white", fontWeight: "600" }}>Test Canvas</Text>
+        <Text style={{ color: colors.text.white, fontWeight: "600" }}>
+          Test Canvas
+        </Text>
       </Pressable>
     </View>
   );
