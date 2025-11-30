@@ -1,11 +1,9 @@
 import { Alert, Dimensions, Image } from "react-native";
 import { ImageData } from "../../components/BoardCanvas";
+import { storageService } from "../storage/mmkvStorage";
 import { pickImagesFromLibrary, takePhotoWithCamera } from "./imagePicker";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
-
-// Default size for imported images (can be adjusted)
-const DEFAULT_IMAGE_SIZE = 300;
 
 // Get the actual dimensions of an image
 export const getImageDimensions = (
@@ -17,7 +15,8 @@ export const getImageDimensions = (
       (width, height) => resolve({ width, height }),
       (error) => {
         console.error("Error getting image dimensions:", error);
-        resolve({ width: DEFAULT_IMAGE_SIZE, height: DEFAULT_IMAGE_SIZE });
+        const defaultImageSize = storageService.getDefaultImageSize();
+        resolve({ width: defaultImageSize, height: defaultImageSize });
       }
     );
   });
@@ -29,17 +28,20 @@ export const createCenteredImage = (
   originalDimensions: { width: number; height: number },
   currentTransform: { x: number; y: number }
 ): ImageData => {
-  // Calculate display size (maintain aspect ratio, max dimension = DEFAULT_IMAGE_SIZE)
+  // Get default image size from MMKV storage
+  const defaultImageSize = storageService.getDefaultImageSize();
+
+  // Calculate display size (maintain aspect ratio, max dimension = defaultImageSize)
   const aspectRatio = originalDimensions.width / originalDimensions.height;
-  let displayWidth = DEFAULT_IMAGE_SIZE;
-  let displayHeight = DEFAULT_IMAGE_SIZE;
+  let displayWidth = defaultImageSize;
+  let displayHeight = defaultImageSize;
 
   if (aspectRatio > 1) {
     // Landscape
-    displayHeight = DEFAULT_IMAGE_SIZE / aspectRatio;
+    displayHeight = defaultImageSize / aspectRatio;
   } else {
     // Portrait or square
-    displayWidth = DEFAULT_IMAGE_SIZE * aspectRatio;
+    displayWidth = defaultImageSize * aspectRatio;
   }
 
   // Calculate viewport center in canvas coordinates

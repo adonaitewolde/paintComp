@@ -11,13 +11,13 @@ import {
 } from "react-native-reanimated";
 import { useBoardTransform } from "../hooks/useBoardTransform";
 import { usePanGesture } from "../hooks/usePanGesture";
+import { storageService } from "../services/storage/mmkvStorage";
 import { colors } from "../utils/designTokens";
 import { createGridPath } from "../utils/gridUtils";
 import { ImageLayer } from "./ImageLayer";
 
 const { width, height } = Dimensions.get("window");
 
-const GRID_SPACING = 20;
 const WORLD_SIZE_MULTIPLIER = 8;
 
 // Component for animating image position on UI thread
@@ -103,9 +103,12 @@ function BoardCanvasComponent({
   );
   const draggingImageIndex = useSharedValue<number | null>(null);
 
+  // Get grid spacing from MMKV storage
+  const gridSpacing = storageService.getGridSpacing();
+
   const gridPath = useMemo(
-    () => createGridPath(width, height, GRID_SPACING, WORLD_SIZE_MULTIPLIER),
-    []
+    () => createGridPath(width, height, gridSpacing, WORLD_SIZE_MULTIPLIER),
+    [gridSpacing]
   );
 
   const boardTransform = useBoardTransform(
