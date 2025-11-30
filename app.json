@@ -10,7 +10,10 @@
     "ios": {
       "supportsTablet": true,
       "backgroundColor": "#050608",
-      "bundleIdentifier": "com.ado0810.reffect"
+      "bundleIdentifier": "com.ado0810.reffect",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
