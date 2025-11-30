@@ -61,11 +61,14 @@ function AnimatedImageWrapper({
 }
 
 export type ImageData = {
+  id?: string; // Database ID (optional for backward compatibility)
   uri: string;
   x: number;
   y: number;
   width: number;
   height: number;
+  rotation?: number; // Rotation in degrees (0, 90, 180, 270)
+  flipHorizontal?: boolean; // Flip horizontally
 };
 
 type BoardCanvasProps = {

@@ -1,9 +1,18 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { initDatabase } from "../src/services/database/database";
 import { colors } from "../src/utils/designTokens";
 
 export default function RootLayout() {
+  useEffect(() => {
+    // Initialize database on app start
+    initDatabase().catch((error) => {
+      console.error('Failed to initialize database:', error);
+    });
+  }, []);
+
   return (
     <GestureHandlerRootView
       style={{ flex: 1, backgroundColor: colors.background.root }}

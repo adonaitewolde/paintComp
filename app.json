@@ -19,7 +19,9 @@
       "backgroundColor": "#050608",
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "permissions": ["android.permission.RECORD_AUDIO"],
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ],
       "package": "com.ado0810.frontend"
     },
     "web": {
@@ -44,7 +46,8 @@
           "photosPermission": "The app needs access to your photos so you can import images for your boards.",
           "cameraPermission": "The app needs access to your camera so you can capture references directly."
         }
-      ]
+      ],
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true,
