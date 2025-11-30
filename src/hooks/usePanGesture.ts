@@ -1,11 +1,11 @@
 import { Gesture } from "react-native-gesture-handler";
 import { useSharedValue, withDecay } from "react-native-reanimated";
 
-export const usePanGesture = () => {
-  const translateX = useSharedValue(0);
-  const translateY = useSharedValue(0);
-  const savedTranslateX = useSharedValue(0);
-  const savedTranslateY = useSharedValue(0);
+export const usePanGesture = (initialX = 0, initialY = 0) => {
+  const translateX = useSharedValue(initialX);
+  const translateY = useSharedValue(initialY);
+  const savedTranslateX = useSharedValue(initialX);
+  const savedTranslateY = useSharedValue(initialY);
 
   const panGesture = Gesture.Pan()
     .onStart(() => {

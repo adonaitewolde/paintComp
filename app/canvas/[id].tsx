@@ -86,13 +86,8 @@ export default function CanvasScreen() {
         const images = await imageService.getByBoardId(boardId);
         setImportedImages(images);
 
-        // Load saved viewport transform from MMKV
-        const savedTransform = storageService.getViewportTransform(boardId);
-        if (savedTransform) {
-          currentTransform.current = savedTransform;
-          // Note: BoardCanvas doesn't support initial transform prop yet
-          // This will be restored when user pans (which triggers handleTransformChange)
-        }
+        // Note: BoardCanvas now loads the viewport transform itself via boardId prop
+        // The transform will be synced back via handleTransformChange when user interacts
 
         // Save last viewed board
         storageService.setLastBoardId(boardId);
@@ -166,6 +161,7 @@ export default function CanvasScreen() {
     <View style={styles.container}>
       <BoardCanvas
         images={importedImages}
+        boardId={boardId}
         onTransformChange={handleTransformChange}
         selectedImageIndex={selectedImageIndex}
         onImageSelect={setSelectedImageIndex}

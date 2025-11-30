@@ -75,6 +75,7 @@ type BoardCanvasProps = {
   backgroundColor?: string;
   imageUris?: string[];
   images?: ImageData[];
+  boardId?: string; // Board ID to load saved viewport transform
   onTransformChange?: (translateX: number, translateY: number) => void;
   selectedImageIndex?: number | null;
   onImageSelect?: (index: number | null) => void;
@@ -85,12 +86,24 @@ function BoardCanvasComponent({
   backgroundColor = colors.background.primary,
   imageUris = [],
   images = [],
+  boardId,
   onTransformChange,
   selectedImageIndex = null,
   onImageSelect,
   onImageMove,
 }: BoardCanvasProps) {
-  const { panGesture, translateX, translateY } = usePanGesture();
+  // Load transform synchronously on mount (MMKV is fast!)
+  // This prevents flickering by setting the correct viewport position before first render
+  const initialTransform = useMemo(() => {
+    if (!boardId) return { x: 0, y: 0 };
+    const saved = storageService.getViewportTransform(boardId);
+    return saved || { x: 0, y: 0 };
+  }, [boardId]);
+
+  const { panGesture, translateX, translateY } = usePanGesture(
+    initialTransform.x,
+    initialTransform.y
+  );
   const isDragging = useSharedValue(false); // Track drag state on UI thread
 
   // Store all image positions in a single shared value (array of {x, y})
