@@ -12,8 +12,10 @@
       "supportsTablet": true,
       "backgroundColor": "#050608",
       "bundleIdentifier": "com.ado0810.reffect",
+      "requireFullScreen": false,
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIRequiresFullScreen": false
       }
     },
     "android": {
