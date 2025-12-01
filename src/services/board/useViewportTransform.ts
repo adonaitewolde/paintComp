@@ -4,6 +4,7 @@ import { SharedValue, useDerivedValue } from "react-native-reanimated";
 export const useBoardTransform = (
   translateX: SharedValue<number>,
   translateY: SharedValue<number>,
+  scale: SharedValue<number>,
   width: number,
   height: number
 ) => {
@@ -13,8 +14,10 @@ export const useBoardTransform = (
     const centerX = width / 2;
     const centerY = height / 2;
 
+    // Transform origin ist center des Screens
     matrix.translate(centerX, centerY);
     matrix.translate(translateX.value, translateY.value);
+    matrix.scale(scale.value, scale.value);
     matrix.translate(-centerX, -centerY);
 
     return matrix;

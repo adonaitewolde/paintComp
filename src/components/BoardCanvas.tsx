@@ -14,6 +14,7 @@ import { useBoardTransform } from "../services/board/useViewportTransform";
 import { storageService } from "../services/database/mmkvStorage";
 import { useDragGesture } from "../services/gesture/useDragGesture";
 import { usePanGesture } from "../services/gesture/usePanGesture";
+import { useZoomGesture } from "../services/gesture/useZoomGesture";
 import { ImageData } from "../types";
 import {
   DEFAULT_Z_INDEX,
@@ -101,6 +102,14 @@ function BoardCanvasComponent({
     initialTransform.y
   );
 
+  const { zoomGesture, scale } = useZoomGesture({
+    initialScale: 1,
+    translateX,
+    translateY,
+    width,
+    height,
+  });
+
   // Support both old imageUris format and new images format
   const displayImages = useMemo(
     () =>
@@ -118,9 +127,7 @@ function BoardCanvasComponent({
   );
 
   // Store displayImages positions in a shared value to access in worklets
-  const displayImagesShared = useSharedValue<Array<{ x: number; y: number }>>(
-    []
-  );
+  const displayImagesShared = useSharedValue<{ x: number; y: number }[]>([]);
 
   // Sync displayImages to shared value when it changes
   useEffect(() => {
@@ -128,22 +135,41 @@ function BoardCanvasComponent({
       x: img.x,
       y: img.y,
     }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [displayImages]); // displayImagesShared is a SharedValue - don't include in dependencies!
 
   // Store all image positions in a single shared value (array of {x, y})
-  // This avoids the hook count issue - we only have one hook!
-  const imagePositions = useSharedValue<{ x: number; y: number }[]>([]);
+  // Initialize from displayImages so early taps/drags see correct positions
+  const imagePositions = useSharedValue<{ x: number; y: number }[]>(
+    displayImages.map((img) => ({
+      x: img.x,
+      y: img.y,
+    }))
+  );
+
+  // Sort images for rendering by zIndex (higher zIndex = rendered last = on top)
+  const sortedImagesWithIndices = useMemo(() => {
+    return displayImages
+      .map((image, originalIndex) => ({ image, originalIndex }))
+      .sort(
+        (a, b) =>
+          (a.image.zIndex ?? DEFAULT_Z_INDEX) -
+          (b.image.zIndex ?? DEFAULT_Z_INDEX)
+      );
+  }, [displayImages]);
 
   // Drag gesture hook
-  const { dragGesture, isDragging, checkDragStart, draggingImageIndex } =
-    useDragGesture({
-      selectedImageIndex,
-      displayImages,
-      translateX,
-      translateY,
-      imagePositions,
-      onImageMove,
-    });
+  const { dragGesture, draggingImageIndex } = useDragGesture({
+    selectedImageIndex,
+    displayImages,
+    translateX,
+    translateY,
+    imagePositions,
+    onImageMove,
+    scale,
+    canvasWidth: width,
+    canvasHeight: height,
+  });
 
   // Get grid spacing from MMKV storage
   const gridSpacing = storageService.getGridSpacing();
@@ -156,6 +182,7 @@ function BoardCanvasComponent({
   const boardTransform = useBoardTransform(
     translateX,
     translateY,
+    scale,
     width,
     height
   );
@@ -172,17 +199,6 @@ function BoardCanvasComponent({
     },
     [onTransformChange]
   );
-
-  // Sort images for rendering by zIndex (higher zIndex = rendered last = on top)
-  const sortedImagesWithIndices = useMemo(() => {
-    return displayImages
-      .map((image, originalIndex) => ({ image, originalIndex }))
-      .sort(
-        (a, b) =>
-          (a.image.zIndex ?? DEFAULT_Z_INDEX) -
-          (b.image.zIndex ?? DEFAULT_Z_INDEX)
-      );
-  }, [displayImages]);
 
   // Sync positions from props to shared values (only when not dragging)
   // Use original indices (not sorted order) for position storage
@@ -224,16 +240,26 @@ function BoardCanvasComponent({
       (item) => item.originalIndex
     );
 
+    const centerX = width / 2;
+    const centerY = height / 2;
+
     return (screenX: number, screenY: number): number | null => {
       "worklet";
 
       // Read transform values directly from shared values (UI thread)
       const tx = translateX.value;
       const ty = translateY.value;
+      const s = scale.value;
 
-      // Convert screen coordinates to canvas coordinates (UI thread)
-      const canvasX = screenX - tx;
-      const canvasY = screenY - ty;
+      if (s === 0) {
+        return null;
+      }
+
+      // Invert the board transform used in useBoardTransform:
+      // screen = center + translate + (canvas - center) * s
+      // => canvas = (screen - center - translate) / s + center
+      const canvasX = (screenX - centerX - tx) / s + centerX;
+      const canvasY = (screenY - centerY - ty) / s + centerY;
 
       // Get current positions from shared value (UI thread)
       const positions = imagePositions.value;
@@ -267,7 +293,8 @@ function BoardCanvasComponent({
 
       return null;
     };
-  }, [displayImages, sortedImagesWithIndices]); // Only depend on displayImages and sortedImagesWithIndices - SharedValues are captured by closure
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [displayImages, sortedImagesWithIndices]); // SharedValues (translateX, translateY, scale, imagePositions) are captured by closure and accessed via .value - don't include in deps
 
   // Handle tap gesture for image selection
   const handleTap = (hitIndex: number | null) => {
@@ -276,40 +303,50 @@ function BoardCanvasComponent({
     }
   };
 
+  // Pan gesture configuration - waits for drag to fail, requires minimum movement
+  const panGestureWithConfig = panGesture
+    .minDistance(PAN_MIN_DISTANCE)
+    .maxPointers(1);
+
+  // Tap gesture - waits for drag and pan to fail
   const tapGesture = Gesture.Tap()
-    .maxDuration(TAP_MAX_DURATION) // Quick tap only
-    .maxDistance(TAP_MAX_DISTANCE) // Prevent accidental taps during small movements
+    .maxDuration(TAP_MAX_DURATION)
+    .maxDistance(TAP_MAX_DISTANCE)
     .onEnd((e) => {
+      "worklet";
       // Entire hit test runs on UI thread - no JS bridge during computation!
       const hitIndex = performHitTest(e.x, e.y);
       // Only one thread crossing to update React state
       runOnJS(handleTap)(hitIndex);
     });
 
-  // Pan gesture - should fail when drag is active or should activate
-  const panGestureWithActivation = panGesture
-    .minDistance(PAN_MIN_DISTANCE) // Require minimum movement before pan activates
-    .manualActivation(true) // Manual control for pan too
-    .onTouchesDown((e, manager) => {
-      "worklet";
-
-      // Fail pan if drag is already active OR if drag should activate (check first)
-      // This prevents race condition where both gestures try to activate simultaneously
-      const shouldDragActivate =
-        checkDragStart(e.allTouches[0].x, e.allTouches[0].y) !== null;
-
-      if (isDragging.value || shouldDragActivate) {
-        manager.fail(); // Fail pan - drag should handle this
-      } else {
-        manager.activate(); // Activate pan - no drag should happen
-      }
-    });
-
-  // Priority: drag (if conditions met) > tap > pan
-  // Use Simultaneous - pan will fail when drag is active
-  const composedGesture = Gesture.Simultaneous(
+  // Gesture Hierarchy:
+  // 1. Zoom (Pinch, 2 fingers) - works simultaneously with other gestures
+  // 2. Drag (1 finger on image, manual activation) - highest priority for single finger
+  // 3. Pan (1 finger, waits for drag to fail, requires movement) - for board panning
+  // 4. Tap (1 finger, waits for drag/pan to fail) - for image selection
+  //
+  // Composition strategy:
+  // - Zoom uses Simultaneous() so it can work alongside drag/pan when 2 fingers are used
+  // - Drag uses manual activation - checks immediately in onTouchesDown
+  // - Pan waits for drag to fail (via waitFor or natural Race behavior)
+  // - Tap waits for both drag and pan to fail
+  //
+  // This ensures:
+  // - 2 fingers -> Zoom activates (can work with drag if dragging with 2 fingers)
+  // - 1 finger on image -> Drag wins
+  // - 1 finger elsewhere, move > minDistance -> Pan wins
+  // - 1 finger elsewhere, quick release -> Tap wins
+  const singleFingerGestures = Gesture.Race(
     dragGesture,
-    Gesture.Exclusive(tapGesture, panGestureWithActivation)
+    panGestureWithConfig,
+    tapGesture
+  );
+
+  // Compose zoom (simultaneous) with single-finger gestures (race)
+  const composedGesture = Gesture.Simultaneous(
+    zoomGesture,
+    singleFingerGestures
   );
 
   return (
