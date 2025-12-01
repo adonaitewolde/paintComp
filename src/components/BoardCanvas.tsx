@@ -12,6 +12,7 @@ import {
 import { createGridPath } from "../services/board/grid";
 import { useBoardTransform } from "../services/board/useBoardTransform";
 import { storageService } from "../services/database/mmkvStorage";
+import { useDragGesture } from "../services/gesture/useDragGesture";
 import { usePanGesture } from "../services/gesture/usePanGesture";
 import { colors } from "../utils/designTokens";
 import { ImageLayer } from "./ImageLayer";
@@ -105,20 +106,45 @@ function BoardCanvasComponent({
     initialTransform.x,
     initialTransform.y
   );
-  const isDragging = useSharedValue(false); // Track drag state on UI thread
+
+  // Support both old imageUris format and new images format
+  const displayImages = useMemo(
+    () =>
+      images.length > 0
+        ? images
+        : imageUris.map((uri, index) => ({
+            uri,
+            x: index * 50,
+            y: index * 50,
+            width: 200,
+            height: 200,
+            zIndex: 0, // Default zIndex for fallback images
+          })),
+    [images, imageUris]
+  );
+
+  // Store displayImages positions in a shared value to access in worklets
+  const displayImagesShared = useSharedValue<Array<{ x: number; y: number }>>([]);
+
+  // Sync displayImages to shared value when it changes
+  useEffect(() => {
+    displayImagesShared.value = displayImages.map((img) => ({ x: img.x, y: img.y }));
+  }, [displayImages]); // displayImagesShared is a SharedValue - don't include in dependencies!
 
   // Store all image positions in a single shared value (array of {x, y})
   // This avoids the hook count issue - we only have one hook!
   const imagePositions = useSharedValue<{ x: number; y: number }[]>([]);
 
-  // Drag state stored on UI thread
-  const dragStartScreenPos = useSharedValue<{ x: number; y: number } | null>(
-    null
-  );
-  const dragStartImagePos = useSharedValue<{ x: number; y: number } | null>(
-    null
-  );
-  const draggingImageIndex = useSharedValue<number | null>(null);
+  // Drag gesture hook
+  const { dragGesture, isDragging, checkDragStart, draggingImageIndex } =
+    useDragGesture({
+      selectedImageIndex,
+      displayImages,
+      translateX,
+      translateY,
+      imagePositions,
+      onImageMove,
+    });
 
   // Get grid spacing from MMKV storage
   const gridSpacing = storageService.getGridSpacing();
@@ -148,22 +174,6 @@ function BoardCanvasComponent({
     [onTransformChange]
   );
 
-  // Support both old imageUris format and new images format
-  const displayImages = useMemo(
-    () =>
-      images.length > 0
-        ? images
-        : imageUris.map((uri, index) => ({
-            uri,
-            x: index * 50,
-            y: index * 50,
-            width: 200,
-            height: 200,
-            zIndex: 0, // Default zIndex for fallback images
-          })),
-    [images, imageUris]
-  );
-
   // Sort images for rendering by zIndex (higher zIndex = rendered last = on top)
   const sortedImagesWithIndices = useMemo(() => {
     return displayImages
@@ -173,27 +183,38 @@ function BoardCanvasComponent({
 
   // Sync positions from props to shared values (only when not dragging)
   // Use original indices (not sorted order) for position storage
-  useEffect(() => {
-    const currentPositions = imagePositions.value;
-    const needsUpdate =
-      currentPositions.length !== displayImages.length ||
-      displayImages.some((img, index) => {
-        const current = currentPositions[index];
-        return !current || current.x !== img.x || current.y !== img.y;
-      });
-
-    if (needsUpdate && draggingImageIndex.value === null) {
+  // Using useAnimatedReaction to avoid reading .value during render
+  useAnimatedReaction(
+    () => {
+      "worklet";
+      return displayImagesShared.value;
+    },
+    (currentImages, previousImages) => {
+      "worklet";
+      
       // Only update if not currently dragging
-      // Store positions by original index (not sorted order)
-      imagePositions.value = displayImages.map((img) => ({
-        x: img.x,
-        y: img.y,
-      }));
+      if (draggingImageIndex.value !== null) return;
+      
+      // Check if update is needed
+      const needsUpdate =
+        !previousImages ||
+        currentImages.length !== previousImages.length ||
+        currentImages.some((img, index) => {
+          const prev = previousImages[index];
+          return !prev || prev.x !== img.x || prev.y !== img.y;
+        });
+
+      if (needsUpdate) {
+        // Store positions by original index (not sorted order)
+        imagePositions.value = currentImages;
+      }
     }
-  }, [displayImages, imagePositions, draggingImageIndex]);
+  );
 
   // Create worklet with closure capture - recreates when images change
   // This keeps ALL hit testing on UI thread, no ref serialization issues
+  // Note: translateX, translateY, imagePositions are SharedValues - they're captured by closure
+  // and accessed via .value inside the worklet, so they don't need to be in dependencies
   const performHitTest = useMemo(() => {
     // Capture sorted order - selected images should be tested first (they're rendered last/on top)
     const sortedOriginalIndices = sortedImagesWithIndices.map(
@@ -245,82 +266,14 @@ function BoardCanvasComponent({
     };
   }, [
     displayImages,
-    translateX,
-    translateY,
-    imagePositions,
     sortedImagesWithIndices,
-  ]); // Recreate when images or selection change
+  ]); // Only depend on displayImages and sortedImagesWithIndices - SharedValues are captured by closure
 
   // Handle tap gesture for image selection
   const handleTap = (hitIndex: number | null) => {
     if (onImageSelect) {
       onImageSelect(hitIndex);
     }
-  };
-
-  // Create worklet to check if drag should start on selected image (with closure capture)
-  // Returns the image index if drag should activate, null otherwise
-  const checkDragStart = useMemo(() => {
-    const currentSelectedIndex = selectedImageIndex;
-
-    return (screenX: number, screenY: number): number | null => {
-      "worklet";
-
-      if (currentSelectedIndex === null) return null;
-
-      const tx = translateX.value;
-      const ty = translateY.value;
-      const canvasX = screenX - tx;
-      const canvasY = screenY - ty;
-
-      const positions = imagePositions.value;
-      if (currentSelectedIndex >= positions.length) return null;
-
-      const pos = positions[currentSelectedIndex];
-      if (!pos) return null;
-
-      const imgX = pos.x;
-      const imgY = pos.y;
-      const img = displayImages[currentSelectedIndex];
-      if (!img) return null;
-
-      const isOnImage =
-        canvasX >= imgX &&
-        canvasX <= imgX + img.width &&
-        canvasY >= imgY &&
-        canvasY <= imgY + img.height;
-
-      return isOnImage ? currentSelectedIndex : null;
-    };
-  }, [
-    selectedImageIndex,
-    displayImages,
-    translateX,
-    translateY,
-    imagePositions,
-  ]);
-
-  // Handle drag end - sync position back to JS thread
-  const handleDragEnd = (imageIndex: number | null) => {
-    if (!onImageMove || imageIndex === null || imageIndex < 0) {
-      draggingImageIndex.value = null;
-      dragStartScreenPos.value = null;
-      dragStartImagePos.value = null;
-      isDragging.value = false;
-      return;
-    }
-
-    const positions = imagePositions.value;
-    const pos = positions[imageIndex];
-    if (pos) {
-      // Sync final position back to JS thread
-      onImageMove(imageIndex, pos.x, pos.y);
-    }
-
-    draggingImageIndex.value = null;
-    dragStartScreenPos.value = null;
-    dragStartImagePos.value = null;
-    isDragging.value = false;
   };
 
   const tapGesture = Gesture.Tap()
@@ -331,71 +284,6 @@ function BoardCanvasComponent({
       const hitIndex = performHitTest(e.x, e.y);
       // Only one thread crossing to update React state
       runOnJS(handleTap)(hitIndex);
-    });
-
-  // Drag gesture for selected images - ALL updates on UI thread!
-  const dragGesture = Gesture.Pan()
-    .manualActivation(true) // Manual control - we decide when to activate
-    .onTouchesDown((e, manager) => {
-      "worklet";
-
-      // Check if drag should activate (worklet, runs on UI thread)
-      // Returns image index if drag should activate, null otherwise
-      const imageIndex = checkDragStart(e.allTouches[0].x, e.allTouches[0].y);
-
-      if (imageIndex !== null) {
-        isDragging.value = true; // Set drag state immediately on UI thread
-        draggingImageIndex.value = imageIndex;
-
-        // Store start positions on UI thread
-        dragStartScreenPos.value = {
-          x: e.allTouches[0].x,
-          y: e.allTouches[0].y,
-        };
-
-        const positions = imagePositions.value;
-        const pos = positions[imageIndex];
-        if (pos) {
-          dragStartImagePos.value = {
-            x: pos.x,
-            y: pos.y,
-          };
-        }
-
-        manager.activate(); // Activate drag - it will handle the gesture
-      } else {
-        manager.fail(); // Explicitly fail - allows pan to take over
-      }
-    })
-    .onUpdate((e) => {
-      "worklet";
-
-      // ALL drag updates happen on UI thread - no JS bridge crossing!
-      const imageIndex = draggingImageIndex.value;
-      if (imageIndex === null) return;
-
-      const startScreen = dragStartScreenPos.value;
-      const startImage = dragStartImagePos.value;
-
-      if (!startScreen || !startImage) return;
-
-      // Calculate delta in screen space
-      const deltaX = e.x - startScreen.x;
-      const deltaY = e.y - startScreen.y;
-
-      // Update position directly on UI thread - no flickering!
-      const positions = imagePositions.value;
-      const newPositions = [...positions];
-      newPositions[imageIndex] = {
-        x: startImage.x + deltaX,
-        y: startImage.y + deltaY,
-      };
-      imagePositions.value = newPositions;
-    })
-    .onEnd(() => {
-      "worklet";
-      const imageIndex = draggingImageIndex.value;
-      runOnJS(handleDragEnd)(imageIndex);
     });
 
   // Pan gesture - should fail when drag is active or should activate

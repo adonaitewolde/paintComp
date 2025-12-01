@@ -1,5 +1,5 @@
-import { ImageData } from '../../components/BoardCanvas';
-import { getDatabase } from './database';
+import { ImageData } from "../../components/BoardCanvas";
+import { getDatabase } from "./database";
 
 export type ImageRecord = {
   id: string;
@@ -37,8 +37,11 @@ const imageDataToRecord = (
   image: ImageData,
   boardId: string,
   id?: string
-): Omit<ImageRecord, 'createdAt'> => {
-  const imageId = id || image.id || `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+): Omit<ImageRecord, "createdAt"> => {
+  const imageId =
+    id ||
+    image.id ||
+    `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   return {
     id: imageId,
     boardId,
@@ -60,7 +63,7 @@ export const imageService = {
   async getByBoardId(boardId: string): Promise<ImageData[]> {
     const database = getDatabase();
     const records = await database.getAllAsync<ImageRecord>(
-      'SELECT * FROM images WHERE boardId = ? ORDER BY zIndex ASC, createdAt ASC',
+      "SELECT * FROM images WHERE boardId = ? ORDER BY zIndex ASC, createdAt ASC",
       [boardId]
     );
     return records.map(recordToImageData);
@@ -73,7 +76,7 @@ export const imageService = {
     const database = getDatabase();
     const record = imageDataToRecord(image, boardId);
     const now = Date.now();
-    
+
     await database.runAsync(
       `INSERT INTO images 
        (id, boardId, uri, x, y, width, height, rotation, flipHorizontal, zIndex, createdAt) 
@@ -92,13 +95,13 @@ export const imageService = {
         now,
       ]
     );
-    
+
     // Update board's updatedAt timestamp
-    await database.runAsync(
-      'UPDATE boards SET updatedAt = ? WHERE id = ?',
-      [now, boardId]
-    );
-    
+    await database.runAsync("UPDATE boards SET updatedAt = ? WHERE id = ?", [
+      now,
+      boardId,
+    ]);
+
     return record.id;
   },
 
@@ -107,10 +110,11 @@ export const imageService = {
    */
   async updatePosition(id: string, x: number, y: number): Promise<void> {
     const database = getDatabase();
-    await database.runAsync(
-      'UPDATE images SET x = ?, y = ? WHERE id = ?',
-      [x, y, id]
-    );
+    await database.runAsync("UPDATE images SET x = ?, y = ? WHERE id = ?", [
+      x,
+      y,
+      id,
+    ]);
   },
 
   /**
@@ -129,44 +133,44 @@ export const imageService = {
     }
   ): Promise<void> {
     const database = getDatabase();
-    
+
     const setParts: string[] = [];
     const values: (string | number)[] = [];
-    
+
     if (updates.x !== undefined) {
-      setParts.push('x = ?');
+      setParts.push("x = ?");
       values.push(updates.x);
     }
     if (updates.y !== undefined) {
-      setParts.push('y = ?');
+      setParts.push("y = ?");
       values.push(updates.y);
     }
     if (updates.width !== undefined) {
-      setParts.push('width = ?');
+      setParts.push("width = ?");
       values.push(updates.width);
     }
     if (updates.height !== undefined) {
-      setParts.push('height = ?');
+      setParts.push("height = ?");
       values.push(updates.height);
     }
     if (updates.rotation !== undefined) {
-      setParts.push('rotation = ?');
+      setParts.push("rotation = ?");
       values.push(updates.rotation);
     }
     if (updates.flipHorizontal !== undefined) {
-      setParts.push('flipHorizontal = ?');
+      setParts.push("flipHorizontal = ?");
       values.push(updates.flipHorizontal ? 1 : 0);
     }
     if (updates.zIndex !== undefined) {
-      setParts.push('zIndex = ?');
+      setParts.push("zIndex = ?");
       values.push(updates.zIndex);
     }
-    
+
     if (setParts.length === 0) return;
-    
+
     values.push(id);
     await database.runAsync(
-      `UPDATE images SET ${setParts.join(', ')} WHERE id = ?`,
+      `UPDATE images SET ${setParts.join(", ")} WHERE id = ?`,
       values
     );
   },
@@ -176,10 +180,10 @@ export const imageService = {
    */
   async updateZIndex(id: string, zIndex: number): Promise<void> {
     const database = getDatabase();
-    await database.runAsync(
-      'UPDATE images SET zIndex = ? WHERE id = ?',
-      [zIndex, id]
-    );
+    await database.runAsync("UPDATE images SET zIndex = ? WHERE id = ?", [
+      zIndex,
+      id,
+    ]);
   },
 
   /**
@@ -187,7 +191,6 @@ export const imageService = {
    */
   async delete(id: string): Promise<void> {
     const database = getDatabase();
-    await database.runAsync('DELETE FROM images WHERE id = ?', [id]);
+    await database.runAsync("DELETE FROM images WHERE id = ?", [id]);
   },
 };
-
