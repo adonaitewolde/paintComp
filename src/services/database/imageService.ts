@@ -1,4 +1,9 @@
 import { ImageData, ImageRecord } from "../../types";
+import {
+  DEFAULT_FLIP_HORIZONTAL,
+  DEFAULT_ROTATION,
+  DEFAULT_Z_INDEX,
+} from "../../utils/constants";
 import { getDatabase } from "./database";
 
 /**
@@ -13,7 +18,7 @@ const recordToImageData = (record: ImageRecord): ImageData => ({
   height: record.height,
   rotation: record.rotation,
   flipHorizontal: record.flipHorizontal === 1,
-  zIndex: record.zIndex ?? 0,
+  zIndex: record.zIndex ?? DEFAULT_Z_INDEX,
 });
 
 /**
@@ -36,9 +41,9 @@ const imageDataToRecord = (
     y: image.y,
     width: image.width,
     height: image.height,
-    rotation: image.rotation ?? 0,
-    flipHorizontal: image.flipHorizontal ? 1 : 0,
-    zIndex: image.zIndex ?? 0,
+    rotation: image.rotation ?? DEFAULT_ROTATION,
+    flipHorizontal: image.flipHorizontal ? 1 : DEFAULT_FLIP_HORIZONTAL,
+    zIndex: image.zIndex ?? DEFAULT_Z_INDEX,
   };
 };
 

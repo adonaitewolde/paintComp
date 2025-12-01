@@ -1,28 +1,39 @@
 import { createMMKV } from "react-native-mmkv";
+import {
+  DEFAULT_IMAGE_SIZE,
+  GRID_SPACING,
+  STORAGE_ID,
+  STORAGE_KEYS,
+} from "../../utils/constants";
 
 // Create MMKV storage instance
 // This instance should be reused throughout the app
 export const storage = createMMKV({
-  id: "moodboard-storage",
+  id: STORAGE_ID,
 });
 
 // Typed storage service with helper methods
 export const storageService = {
   // Grid settings
-  setGridSpacing: (value: number) => storage.set("gridSpacing", value),
-  getGridSpacing: () => storage.getNumber("gridSpacing") ?? 20,
+  setGridSpacing: (value: number) =>
+    storage.set(STORAGE_KEYS.GRID_SPACING, value),
+  getGridSpacing: () =>
+    storage.getNumber(STORAGE_KEYS.GRID_SPACING) ?? GRID_SPACING,
 
   // Last viewed board
-  setLastBoardId: (id: string) => storage.set("lastBoardId", id),
-  getLastBoardId: () => storage.getString("lastBoardId"),
+  setLastBoardId: (id: string) => storage.set(STORAGE_KEYS.LAST_BOARD_ID, id),
+  getLastBoardId: () => storage.getString(STORAGE_KEYS.LAST_BOARD_ID),
 
   // Viewport transform cache (per board)
   // Stores the current pan position for each board
   setViewportTransform: (boardId: string, x: number, y: number) => {
-    storage.set(`viewport.${boardId}`, JSON.stringify({ x, y }));
+    storage.set(
+      STORAGE_KEYS.VIEWPORT_TRANSFORM(boardId),
+      JSON.stringify({ x, y })
+    );
   },
   getViewportTransform: (boardId: string): { x: number; y: number } | null => {
-    const data = storage.getString(`viewport.${boardId}`);
+    const data = storage.getString(STORAGE_KEYS.VIEWPORT_TRANSFORM(boardId));
     if (!data) return null;
     try {
       return JSON.parse(data);
@@ -32,13 +43,14 @@ export const storageService = {
   },
 
   // App settings
-  setShowGrid: (value: boolean) => storage.set("showGrid", value),
-  getShowGrid: () => storage.getBoolean("showGrid") ?? true,
+  setShowGrid: (value: boolean) => storage.set(STORAGE_KEYS.SHOW_GRID, value),
+  getShowGrid: () => storage.getBoolean(STORAGE_KEYS.SHOW_GRID) ?? true,
 
   // Default image size
   setDefaultImageSize: (value: number) =>
-    storage.set("defaultImageSize", value),
-  getDefaultImageSize: () => storage.getNumber("defaultImageSize") ?? 300,
+    storage.set(STORAGE_KEYS.DEFAULT_IMAGE_SIZE, value),
+  getDefaultImageSize: () =>
+    storage.getNumber(STORAGE_KEYS.DEFAULT_IMAGE_SIZE) ?? DEFAULT_IMAGE_SIZE,
 
   // Clear all data (for testing/debugging)
   clearAll: () => storage.clearAll(),

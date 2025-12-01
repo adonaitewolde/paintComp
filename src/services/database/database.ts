@@ -1,4 +1,9 @@
 import * as SQLite from "expo-sqlite";
+import {
+  DEFAULT_FLIP_HORIZONTAL,
+  DEFAULT_ROTATION,
+  DEFAULT_Z_INDEX,
+} from "../../utils/constants";
 
 let db: SQLite.SQLiteDatabase | null = null;
 
@@ -23,9 +28,9 @@ export const initDatabase = async () => {
         y REAL NOT NULL,
         width REAL NOT NULL,
         height REAL NOT NULL,
-        rotation REAL DEFAULT 0,
-        flipHorizontal INTEGER DEFAULT 0,
-        zIndex INTEGER DEFAULT 0,
+        rotation REAL DEFAULT ${DEFAULT_ROTATION},
+        flipHorizontal INTEGER DEFAULT ${DEFAULT_FLIP_HORIZONTAL},
+        zIndex INTEGER DEFAULT ${DEFAULT_Z_INDEX},
         createdAt INTEGER NOT NULL,
         FOREIGN KEY (boardId) REFERENCES boards(id) ON DELETE CASCADE
       );

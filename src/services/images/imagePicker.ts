@@ -2,6 +2,11 @@ import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 import { Alert, Platform } from "react-native";
 import { PickImagesResult } from "../../types";
+import {
+  HEIC_COMPRESSION_QUALITY,
+  IMAGE_COMPRESSION_QUALITY,
+  MAX_IMAGE_DIMENSION,
+} from "../../utils/constants";
 
 async function requestPermissions(): Promise<boolean> {
   if (Platform.OS === "web") {
@@ -33,7 +38,7 @@ async function convertToJpegIfNeeded(uri: string): Promise<string> {
     try {
       console.log(`[ImagePicker] Converting HEIC to JPEG: ${uri}`);
       const result = await ImageManipulator.manipulateAsync(uri, [], {
-        compress: 0.8,
+        compress: HEIC_COMPRESSION_QUALITY,
         format: ImageManipulator.SaveFormat.JPEG,
       });
       console.log(`[ImagePicker] Converted to JPEG: ${result.uri}`);
@@ -53,8 +58,8 @@ async function optimizeImageSize(
   originalHeight: number
 ): Promise<string> {
   // Maximum dimension for display (images are shown at max 50% of viewport)
-  // Using 2048px max to balance quality and memory usage
-  const maxDimension = 2048;
+  // Using MAX_IMAGE_DIMENSION to balance quality and memory usage
+  const maxDimension = MAX_IMAGE_DIMENSION;
 
   // Only resize if image is larger than max dimension
   if (originalWidth <= maxDimension && originalHeight <= maxDimension) {
@@ -77,7 +82,7 @@ async function optimizeImageSize(
       uri,
       [{ resize: { width: newWidth, height: newHeight } }],
       {
-        compress: 0.8,
+        compress: HEIC_COMPRESSION_QUALITY,
         format: ImageManipulator.SaveFormat.JPEG,
       }
     );
@@ -98,7 +103,7 @@ export async function pickImagesFromLibrary(): Promise<PickImagesResult> {
   const result = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ["images"],
     allowsMultipleSelection: true,
-    quality: 0.7, // Reduced from 1 to improve performance
+    quality: IMAGE_COMPRESSION_QUALITY,
   });
 
   if (result.canceled || !result.assets) {
@@ -135,7 +140,7 @@ export async function takePhotoWithCamera(): Promise<PickImagesResult> {
 
   const result = await ImagePicker.launchCameraAsync({
     mediaTypes: ["images"],
-    quality: 0.7, // Reduced from 1 to improve performance
+    quality: IMAGE_COMPRESSION_QUALITY,
   });
 
   if (result.canceled || !result.assets || !result.assets[0]) {

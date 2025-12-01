@@ -9,18 +9,23 @@ import {
   useDerivedValue,
   useSharedValue,
 } from "react-native-reanimated";
-import { ImageData } from "../types";
 import { createGridPath } from "../services/board/grid";
 import { useBoardTransform } from "../services/board/useViewportTransform";
 import { storageService } from "../services/database/mmkvStorage";
 import { useDragGesture } from "../services/gesture/useDragGesture";
 import { usePanGesture } from "../services/gesture/usePanGesture";
+import { ImageData } from "../types";
+import {
+  DEFAULT_Z_INDEX,
+  PAN_MIN_DISTANCE,
+  TAP_MAX_DISTANCE,
+  TAP_MAX_DURATION,
+  WORLD_SIZE_MULTIPLIER,
+} from "../utils/constants";
 import { colors } from "../utils/designTokens";
 import { ImageLayer } from "./ImageLayer";
 
 const { width, height } = Dimensions.get("window");
-
-const WORLD_SIZE_MULTIPLIER = 8;
 
 // Component for animating image position on UI thread
 type AnimatedImageWrapperProps = {
@@ -61,7 +66,6 @@ function AnimatedImageWrapper({
     </Group>
   );
 }
-
 
 type BoardCanvasProps = {
   backgroundColor?: string;
@@ -108,17 +112,22 @@ function BoardCanvasComponent({
             y: index * 50,
             width: 200,
             height: 200,
-            zIndex: 0, // Default zIndex for fallback images
+            zIndex: DEFAULT_Z_INDEX, // Default zIndex for fallback images
           })),
     [images, imageUris]
   );
 
   // Store displayImages positions in a shared value to access in worklets
-  const displayImagesShared = useSharedValue<Array<{ x: number; y: number }>>([]);
+  const displayImagesShared = useSharedValue<Array<{ x: number; y: number }>>(
+    []
+  );
 
   // Sync displayImages to shared value when it changes
   useEffect(() => {
-    displayImagesShared.value = displayImages.map((img) => ({ x: img.x, y: img.y }));
+    displayImagesShared.value = displayImages.map((img) => ({
+      x: img.x,
+      y: img.y,
+    }));
   }, [displayImages]); // displayImagesShared is a SharedValue - don't include in dependencies!
 
   // Store all image positions in a single shared value (array of {x, y})
@@ -168,7 +177,11 @@ function BoardCanvasComponent({
   const sortedImagesWithIndices = useMemo(() => {
     return displayImages
       .map((image, originalIndex) => ({ image, originalIndex }))
-      .sort((a, b) => (a.image.zIndex ?? 0) - (b.image.zIndex ?? 0));
+      .sort(
+        (a, b) =>
+          (a.image.zIndex ?? DEFAULT_Z_INDEX) -
+          (b.image.zIndex ?? DEFAULT_Z_INDEX)
+      );
   }, [displayImages]);
 
   // Sync positions from props to shared values (only when not dragging)
@@ -181,10 +194,10 @@ function BoardCanvasComponent({
     },
     (currentImages, previousImages) => {
       "worklet";
-      
+
       // Only update if not currently dragging
       if (draggingImageIndex.value !== null) return;
-      
+
       // Check if update is needed
       const needsUpdate =
         !previousImages ||
@@ -254,10 +267,7 @@ function BoardCanvasComponent({
 
       return null;
     };
-  }, [
-    displayImages,
-    sortedImagesWithIndices,
-  ]); // Only depend on displayImages and sortedImagesWithIndices - SharedValues are captured by closure
+  }, [displayImages, sortedImagesWithIndices]); // Only depend on displayImages and sortedImagesWithIndices - SharedValues are captured by closure
 
   // Handle tap gesture for image selection
   const handleTap = (hitIndex: number | null) => {
@@ -267,8 +277,8 @@ function BoardCanvasComponent({
   };
 
   const tapGesture = Gesture.Tap()
-    .maxDuration(200) // Quick tap only
-    .maxDistance(10) // Prevent accidental taps during small movements
+    .maxDuration(TAP_MAX_DURATION) // Quick tap only
+    .maxDistance(TAP_MAX_DISTANCE) // Prevent accidental taps during small movements
     .onEnd((e) => {
       // Entire hit test runs on UI thread - no JS bridge during computation!
       const hitIndex = performHitTest(e.x, e.y);
@@ -278,7 +288,7 @@ function BoardCanvasComponent({
 
   // Pan gesture - should fail when drag is active or should activate
   const panGestureWithActivation = panGesture
-    .minDistance(10) // Require 10px movement before pan activates
+    .minDistance(PAN_MIN_DISTANCE) // Require minimum movement before pan activates
     .manualActivation(true) // Manual control for pan too
     .onTouchesDown((e, manager) => {
       "worklet";

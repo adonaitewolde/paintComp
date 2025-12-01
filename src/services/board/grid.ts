@@ -1,7 +1,5 @@
 import { Skia } from "@shopify/react-native-skia";
-
-const GRID_SPACING = 20;
-const WORLD_SIZE_MULTIPLIER = 8;
+import { GRID_SPACING, WORLD_SIZE_MULTIPLIER } from "../../utils/constants";
 
 export const createGridPath = (
   width: number,

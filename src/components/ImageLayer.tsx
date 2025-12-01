@@ -1,5 +1,6 @@
 import { Group, Image, Path, Skia, useImage } from "@shopify/react-native-skia";
 import React from "react";
+import { SELECTED_BORDER_WIDTH } from "../utils/constants";
 import { borderRadius, colors } from "../utils/designTokens";
 
 type ImageLayerProps = {
@@ -13,7 +14,6 @@ type ImageLayerProps = {
 };
 
 const DEFAULT_BORDER_RADIUS = borderRadius.lg;
-const SELECTED_BORDER_WIDTH = 3;
 const SELECTED_BORDER_COLOR = colors.accent.primary;
 
 export function ImageLayer({
