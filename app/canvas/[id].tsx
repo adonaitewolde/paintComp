@@ -1,7 +1,8 @@
 import { useLocalSearchParams } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
-import { BoardCanvas, ImageData } from "../../src/components/BoardCanvas";
+import { BoardCanvas } from "../../src/components/BoardCanvas";
+import { ImageData } from "../../src/types";
 import { ImportButton } from "../../src/components/ImportButton";
 import { boardService } from "../../src/services/database/boardService";
 import { imageService } from "../../src/services/database/imageService";

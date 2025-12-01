@@ -1,10 +1,7 @@
 import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 import { Alert, Platform } from "react-native";
-
-export type PickImagesResult = {
-  uris: string[];
-};
+import { PickImagesResult } from "../../types";
 
 async function requestPermissions(): Promise<boolean> {
   if (Platform.OS === "web") {

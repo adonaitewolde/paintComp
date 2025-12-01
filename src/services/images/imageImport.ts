@@ -1,5 +1,5 @@
 import { Alert, Dimensions, Image } from "react-native";
-import { ImageData } from "../../components/BoardCanvas";
+import { ImageData } from "../../types";
 import { storageService } from "../database/mmkvStorage";
 import { pickImagesFromLibrary, takePhotoWithCamera } from "./imagePicker";
 

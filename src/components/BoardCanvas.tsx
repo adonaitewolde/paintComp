@@ -9,8 +9,9 @@ import {
   useDerivedValue,
   useSharedValue,
 } from "react-native-reanimated";
+import { ImageData } from "../types";
 import { createGridPath } from "../services/board/grid";
-import { useBoardTransform } from "../services/board/useBoardTransform";
+import { useBoardTransform } from "../services/board/useViewportTransform";
 import { storageService } from "../services/database/mmkvStorage";
 import { useDragGesture } from "../services/gesture/useDragGesture";
 import { usePanGesture } from "../services/gesture/usePanGesture";
@@ -61,17 +62,6 @@ function AnimatedImageWrapper({
   );
 }
 
-export type ImageData = {
-  id?: string; // Database ID (optional for backward compatibility)
-  uri: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  rotation?: number; // Rotation in degrees (0, 90, 180, 270)
-  flipHorizontal?: boolean; // Flip horizontally
-  zIndex?: number; // Z-index for layer ordering (higher = on top)
-};
 
 type BoardCanvasProps = {
   backgroundColor?: string;

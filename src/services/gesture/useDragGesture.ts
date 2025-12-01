@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Gesture } from "react-native-gesture-handler";
 import { runOnJS, SharedValue, useSharedValue } from "react-native-reanimated";
-import { ImageData } from "../../components/BoardCanvas";
+import { ImageData } from "../../types";
 
 type UseDragGestureParams = {
   selectedImageIndex: number | null;

@@ -1,19 +1,5 @@
-import { ImageData } from "../../components/BoardCanvas";
+import { ImageData, ImageRecord } from "../../types";
 import { getDatabase } from "./database";
-
-export type ImageRecord = {
-  id: string;
-  boardId: string;
-  uri: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  rotation: number;
-  flipHorizontal: number; // SQLite stores boolean as 0/1
-  zIndex: number;
-  createdAt: number;
-};
 
 /**
  * Convert ImageRecord from database to ImageData
