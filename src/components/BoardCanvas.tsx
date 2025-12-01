@@ -97,17 +97,22 @@ function BoardCanvasComponent({
     return saved || { x: 0, y: 0 };
   }, [boardId]);
 
-  const { panGesture, translateX, translateY } = usePanGesture(
-    initialTransform.x,
-    initialTransform.y
-  );
+  // Shared transform values for the board (pan + zoom)
+  const translateX = useSharedValue(initialTransform.x);
+  const translateY = useSharedValue(initialTransform.y);
+  const scale = useSharedValue(1);
 
-  const { zoomGesture, scale } = useZoomGesture({
+  // Pan gesture (board movement)
+  const { panGesture } = usePanGesture(translateX, translateY, scale);
+
+  // Zoom gesture (pinch to zoom)
+  const { zoomGesture } = useZoomGesture({
     initialScale: 1,
     translateX,
     translateY,
     width,
     height,
+    scale,
   });
 
   // Support both old imageUris format and new images format

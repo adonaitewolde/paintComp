@@ -2,15 +2,18 @@ import { useMemo } from "react";
 import { Gesture } from "react-native-gesture-handler";
 import {
   cancelAnimation,
+  SharedValue,
   useSharedValue,
   withDecay,
 } from "react-native-reanimated";
 
-export const usePanGesture = (initialX = 0, initialY = 0) => {
-  const translateX = useSharedValue(initialX);
-  const translateY = useSharedValue(initialY);
-  const savedTranslateX = useSharedValue(initialX);
-  const savedTranslateY = useSharedValue(initialY);
+export const usePanGesture = (
+  translateX: SharedValue<number>,
+  translateY: SharedValue<number>,
+  scale?: SharedValue<number>
+) => {
+  const savedTranslateX = useSharedValue(translateX.value);
+  const savedTranslateY = useSharedValue(translateY.value);
 
   const panGesture = useMemo(
     () =>
@@ -38,25 +41,34 @@ export const usePanGesture = (initialX = 0, initialY = 0) => {
             Math.abs(e.velocityX) > minVelocity ||
             Math.abs(e.velocityY) > minVelocity
           ) {
+            // Adjust momentum only when zoomed IN, not when zoomed OUT.
+            // - scale <= 1: keep velocity as-is (no extra „Boost“ beim Rauszoomen)
+            // - scale > 1: reduce velocity so Momentum fühlt sich bei starkem Zoom nicht zu extrem an
+            const rawScale = scale?.value ?? 1;
+            const safeScale = rawScale <= 0 ? 1 : rawScale;
+            const effectiveScale = safeScale < 1 ? 1 : safeScale;
+            const velocityScaleFactor = 1 / effectiveScale;
+
+            const adjustedVelocityX = e.velocityX * velocityScaleFactor;
+            const adjustedVelocityY = e.velocityY * velocityScaleFactor;
+
             translateX.value = withDecay({
-              velocity: e.velocityX,
+              velocity: adjustedVelocityX,
               clamp: [Number.NEGATIVE_INFINITY, Number.POSITIVE_INFINITY],
-              deceleration: 0.998, // Higher = smoother, longer momentum
+              deceleration: 0.991, // Higher = smoother, longer momentum
             });
 
             translateY.value = withDecay({
-              velocity: e.velocityY,
+              velocity: adjustedVelocityY,
               clamp: [Number.NEGATIVE_INFINITY, Number.POSITIVE_INFINITY],
-              deceleration: 0.998,
+              deceleration: 0.991,
             });
           }
         }),
-    [translateX, translateY, savedTranslateX, savedTranslateY]
+    [translateX, translateY, savedTranslateX, savedTranslateY, scale]
   );
 
   return {
     panGesture,
-    translateX,
-    translateY,
   };
 };

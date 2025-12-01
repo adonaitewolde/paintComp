@@ -8,6 +8,12 @@ type UseZoomGestureParams = {
   translateY: SharedValue<number>;
   width: number;
   height: number;
+  /**
+   * Optional external scale SharedValue.
+   * If provided, zoom will update this value instead of creating its own.
+   * This allows other gesture logic (e.g., pan momentum) to react to zoom.
+   */
+  scale?: SharedValue<number>;
 };
 
 export const useZoomGesture = ({
@@ -16,8 +22,9 @@ export const useZoomGesture = ({
   translateY,
   width,
   height,
+  scale: externalScale,
 }: UseZoomGestureParams) => {
-  const scale = useSharedValue(initialScale);
+  const internalScale = externalScale ?? useSharedValue(initialScale);
   const savedScale = useSharedValue(initialScale);
   const savedTranslateX = useSharedValue(0);
   const savedTranslateY = useSharedValue(0);
@@ -31,7 +38,7 @@ export const useZoomGesture = ({
       Gesture.Pinch()
         .onStart((e) => {
           "worklet";
-          savedScale.value = scale.value;
+          savedScale.value = internalScale.value;
           savedTranslateX.value = translateX.value;
           savedTranslateY.value = translateY.value;
           focalX.value = e.focalX;
@@ -71,7 +78,7 @@ export const useZoomGesture = ({
           translateY.value =
             focalOffsetY * (1 - scaleRatio) + savedTranslateY.value * scaleRatio;
 
-          scale.value = clampedScale;
+          internalScale.value = clampedScale;
         })
         .onEnd(() => {
           "worklet";
@@ -79,7 +86,7 @@ export const useZoomGesture = ({
           // Aktuell behalten wir einfach den Scale
         }),
     [
-      scale,
+      internalScale,
       savedScale,
       savedTranslateX,
       savedTranslateY,
@@ -94,7 +101,7 @@ export const useZoomGesture = ({
 
   return {
     zoomGesture,
-    scale,
+    scale: internalScale,
   };
 };
 
