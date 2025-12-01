@@ -9,11 +9,11 @@ import {
   useDerivedValue,
   useSharedValue,
 } from "react-native-reanimated";
-import { useBoardTransform } from "../hooks/useBoardTransform";
-import { usePanGesture } from "../hooks/usePanGesture";
-import { storageService } from "../services/storage/mmkvStorage";
+import { createGridPath } from "../services/board/grid";
+import { useBoardTransform } from "../services/board/useBoardTransform";
+import { storageService } from "../services/database/mmkvStorage";
+import { usePanGesture } from "../services/gesture/usePanGesture";
 import { colors } from "../utils/designTokens";
-import { createGridPath } from "../utils/gridUtils";
 import { ImageLayer } from "./ImageLayer";
 
 const { width, height } = Dimensions.get("window");
@@ -69,6 +69,7 @@ export type ImageData = {
   height: number;
   rotation?: number; // Rotation in degrees (0, 90, 180, 270)
   flipHorizontal?: boolean; // Flip horizontally
+  zIndex?: number; // Z-index for layer ordering (higher = on top)
 };
 
 type BoardCanvasProps = {
@@ -158,11 +159,20 @@ function BoardCanvasComponent({
             y: index * 50,
             width: 200,
             height: 200,
+            zIndex: 0, // Default zIndex for fallback images
           })),
     [images, imageUris]
   );
 
+  // Sort images for rendering by zIndex (higher zIndex = rendered last = on top)
+  const sortedImagesWithIndices = useMemo(() => {
+    return displayImages
+      .map((image, originalIndex) => ({ image, originalIndex }))
+      .sort((a, b) => (a.image.zIndex ?? 0) - (b.image.zIndex ?? 0));
+  }, [displayImages]);
+
   // Sync positions from props to shared values (only when not dragging)
+  // Use original indices (not sorted order) for position storage
   useEffect(() => {
     const currentPositions = imagePositions.value;
     const needsUpdate =
@@ -174,6 +184,7 @@ function BoardCanvasComponent({
 
     if (needsUpdate && draggingImageIndex.value === null) {
       // Only update if not currently dragging
+      // Store positions by original index (not sorted order)
       imagePositions.value = displayImages.map((img) => ({
         x: img.x,
         y: img.y,
@@ -184,6 +195,11 @@ function BoardCanvasComponent({
   // Create worklet with closure capture - recreates when images change
   // This keeps ALL hit testing on UI thread, no ref serialization issues
   const performHitTest = useMemo(() => {
+    // Capture sorted order - selected images should be tested first (they're rendered last/on top)
+    const sortedOriginalIndices = sortedImagesWithIndices.map(
+      (item) => item.originalIndex
+    );
+
     return (screenX: number, screenY: number): number | null => {
       "worklet";
 
@@ -198,15 +214,21 @@ function BoardCanvasComponent({
       // Get current positions from shared value (UI thread)
       const positions = imagePositions.value;
 
-      // Hit test using shared values (ALL on UI thread!)
-      for (let i = positions.length - 1; i >= 0; i--) {
-        const pos = positions[i];
+      // Hit test in sorted order (reverse): test selected images first (they're on top)
+      // Iterate backwards through sorted indices so top images are tested first
+      for (
+        let sortedIdx = sortedOriginalIndices.length - 1;
+        sortedIdx >= 0;
+        sortedIdx--
+      ) {
+        const originalIndex = sortedOriginalIndices[sortedIdx];
+        const pos = positions[originalIndex];
         if (!pos) continue;
 
         const imgX = pos.x;
         const imgY = pos.y;
         // Use displayImages for width/height (static values)
-        const img = displayImages[i];
+        const img = displayImages[originalIndex];
         if (!img) continue;
 
         if (
@@ -215,22 +237,24 @@ function BoardCanvasComponent({
           canvasY >= imgY &&
           canvasY <= imgY + img.height
         ) {
-          return i;
+          return originalIndex; // Return original index for selection
         }
       }
 
       return null;
     };
-  }, [displayImages, translateX, translateY, imagePositions]); // Recreate when images change
+  }, [
+    displayImages,
+    translateX,
+    translateY,
+    imagePositions,
+    sortedImagesWithIndices,
+  ]); // Recreate when images or selection change
 
   // Handle tap gesture for image selection
   const handleTap = (hitIndex: number | null) => {
-    if (!onImageSelect) return;
-
-    if (hitIndex !== null) {
+    if (onImageSelect) {
       onImageSelect(hitIndex);
-    } else {
-      onImageSelect(null);
     }
   };
 
@@ -415,16 +439,19 @@ function BoardCanvasComponent({
           </Group>
 
           {/* Nur die Bilder werden verschoben */}
+          {/* Render sorted: selected images come last (on top) */}
           <Group matrix={boardTransform}>
-            {displayImages.map((image, index) => (
-              <AnimatedImageWrapper
-                key={`${image.uri}-${index}`}
-                imageIndex={index}
-                imagePositions={imagePositions}
-                image={image}
-                isSelected={selectedImageIndex === index}
-              />
-            ))}
+            {sortedImagesWithIndices.map(
+              ({ image, originalIndex }, sortedIndex) => (
+                <AnimatedImageWrapper
+                  key={`${image.uri}-${originalIndex}`}
+                  imageIndex={originalIndex}
+                  imagePositions={imagePositions}
+                  image={image}
+                  isSelected={selectedImageIndex === originalIndex}
+                />
+              )
+            )}
           </Group>
         </Canvas>
       </GestureDetector>

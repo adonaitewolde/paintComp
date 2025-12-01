@@ -11,6 +11,7 @@ export type ImageRecord = {
   height: number;
   rotation: number;
   flipHorizontal: number; // SQLite stores boolean as 0/1
+  zIndex: number;
   createdAt: number;
 };
 
@@ -26,6 +27,7 @@ const recordToImageData = (record: ImageRecord): ImageData => ({
   height: record.height,
   rotation: record.rotation,
   flipHorizontal: record.flipHorizontal === 1,
+  zIndex: record.zIndex ?? 0,
 });
 
 /**
@@ -47,17 +49,18 @@ const imageDataToRecord = (
     height: image.height,
     rotation: image.rotation ?? 0,
     flipHorizontal: image.flipHorizontal ? 1 : 0,
+    zIndex: image.zIndex ?? 0,
   };
 };
 
 export const imageService = {
   /**
-   * Get all images for a board
+   * Get all images for a board, sorted by zIndex (ascending) then createdAt
    */
   async getByBoardId(boardId: string): Promise<ImageData[]> {
     const database = getDatabase();
     const records = await database.getAllAsync<ImageRecord>(
-      'SELECT * FROM images WHERE boardId = ? ORDER BY createdAt ASC',
+      'SELECT * FROM images WHERE boardId = ? ORDER BY zIndex ASC, createdAt ASC',
       [boardId]
     );
     return records.map(recordToImageData);
@@ -73,8 +76,8 @@ export const imageService = {
     
     await database.runAsync(
       `INSERT INTO images 
-       (id, boardId, uri, x, y, width, height, rotation, flipHorizontal, createdAt) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, boardId, uri, x, y, width, height, rotation, flipHorizontal, zIndex, createdAt) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         record.id,
         record.boardId,
@@ -85,6 +88,7 @@ export const imageService = {
         record.height,
         record.rotation,
         record.flipHorizontal,
+        record.zIndex,
         now,
       ]
     );
@@ -121,6 +125,7 @@ export const imageService = {
       height?: number;
       rotation?: number;
       flipHorizontal?: boolean;
+      zIndex?: number;
     }
   ): Promise<void> {
     const database = getDatabase();
@@ -152,6 +157,10 @@ export const imageService = {
       setParts.push('flipHorizontal = ?');
       values.push(updates.flipHorizontal ? 1 : 0);
     }
+    if (updates.zIndex !== undefined) {
+      setParts.push('zIndex = ?');
+      values.push(updates.zIndex);
+    }
     
     if (setParts.length === 0) return;
     
@@ -159,6 +168,17 @@ export const imageService = {
     await database.runAsync(
       `UPDATE images SET ${setParts.join(', ')} WHERE id = ?`,
       values
+    );
+  },
+
+  /**
+   * Update image zIndex (bring to front)
+   */
+  async updateZIndex(id: string, zIndex: number): Promise<void> {
+    const database = getDatabase();
+    await database.runAsync(
+      'UPDATE images SET zIndex = ? WHERE id = ?',
+      [zIndex, id]
     );
   },
 

@@ -5,12 +5,12 @@ import { BoardCanvas, ImageData } from "../../src/components/BoardCanvas";
 import { ImportButton } from "../../src/components/ImportButton";
 import { boardService } from "../../src/services/database/boardService";
 import { imageService } from "../../src/services/database/imageService";
+import { storageService } from "../../src/services/database/mmkvStorage";
 import {
   importImagesFromLibrary,
   importPhotoFromCamera,
   showImportImageDialog,
 } from "../../src/services/images/imageImport";
-import { storageService } from "../../src/services/storage/mmkvStorage";
 
 export default function CanvasScreen() {
   const { id: boardId } = useLocalSearchParams<{ id: string }>();
@@ -36,9 +36,21 @@ export default function CanvasScreen() {
 
     const newImages = await importImagesFromLibrary(currentTransform.current);
     if (newImages.length > 0) {
+      // Calculate max zIndex from existing images to place new images on top
+      const maxZIndex = Math.max(
+        ...importedImages.map((img) => img.zIndex ?? 0),
+        -1
+      );
+
+      // Set zIndex for new images so they appear on top
+      const imagesWithZIndex = newImages.map((image, index) => ({
+        ...image,
+        zIndex: maxZIndex + 1 + index,
+      }));
+
       // Save images to database
       const savedImages = await Promise.all(
-        newImages.map((image) =>
+        imagesWithZIndex.map((image) =>
           imageService.create(image, boardId).then((id) => ({
             ...image,
             id,
@@ -55,9 +67,21 @@ export default function CanvasScreen() {
 
     const newImages = await importPhotoFromCamera(currentTransform.current);
     if (newImages.length > 0) {
+      // Calculate max zIndex from existing images to place new images on top
+      const maxZIndex = Math.max(
+        ...importedImages.map((img) => img.zIndex ?? 0),
+        -1
+      );
+
+      // Set zIndex for new images so they appear on top
+      const imagesWithZIndex = newImages.map((image, index) => ({
+        ...image,
+        zIndex: maxZIndex + 1 + index,
+      }));
+
       // Save images to database
       const savedImages = await Promise.all(
-        newImages.map((image) =>
+        imagesWithZIndex.map((image) =>
           imageService.create(image, boardId).then((id) => ({
             ...image,
             id,
@@ -127,6 +151,35 @@ export default function CanvasScreen() {
     };
   }, []);
 
+  // Handle image selection - bring to front
+  const handleImageSelect = (index: number | null) => {
+    if (index !== null) {
+      const image = importedImages[index];
+      if (image) {
+        // Bring selected image to front
+        const maxZIndex = Math.max(
+          ...importedImages.map((img) => img.zIndex ?? 0),
+          -1
+        );
+        const newZIndex = maxZIndex + 1;
+
+        setImportedImages((prev) => {
+          const updated = [...prev];
+          updated[index] = { ...updated[index], zIndex: newZIndex };
+          return updated;
+        });
+
+        // Save to database
+        if (image.id) {
+          imageService.updateZIndex(image.id, newZIndex).catch((error) => {
+            console.error("Error updating image zIndex:", error);
+          });
+        }
+      }
+    }
+    setSelectedImageIndex(index);
+  };
+
   // Handle image position updates when dragging (debounced DB save)
   const handleImageMove = (index: number, x: number, y: number) => {
     setImportedImages((prev) => {
@@ -164,7 +217,7 @@ export default function CanvasScreen() {
         boardId={boardId}
         onTransformChange={handleTransformChange}
         selectedImageIndex={selectedImageIndex}
-        onImageSelect={setSelectedImageIndex}
+        onImageSelect={handleImageSelect}
         onImageMove={handleImageMove}
       />
       <ImportButton onPress={handleImportPress} />

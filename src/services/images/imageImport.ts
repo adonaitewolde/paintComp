@@ -1,6 +1,6 @@
 import { Alert, Dimensions, Image } from "react-native";
 import { ImageData } from "../../components/BoardCanvas";
-import { storageService } from "../storage/mmkvStorage";
+import { storageService } from "../database/mmkvStorage";
 import { pickImagesFromLibrary, takePhotoWithCamera } from "./imagePicker";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
