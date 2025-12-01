@@ -308,12 +308,12 @@ function BoardCanvasComponent({
     }
   };
 
-  // Pan gesture configuration - waits for drag to fail, requires minimum movement
+  // Pan gesture configuration - requires minimum movement to activate
   const panGestureWithConfig = panGesture
     .minDistance(PAN_MIN_DISTANCE)
     .maxPointers(1);
 
-  // Tap gesture - waits for drag and pan to fail
+  // Tap gesture - for image selection
   const tapGesture = Gesture.Tap()
     .maxDuration(TAP_MAX_DURATION)
     .maxDistance(TAP_MAX_DISTANCE)
@@ -325,28 +325,27 @@ function BoardCanvasComponent({
       runOnJS(handleTap)(hitIndex);
     });
 
-  // Gesture Hierarchy:
+  // Gesture Hierarchy (using Exclusive to ensure proper sequencing):
   // 1. Zoom (Pinch, 2 fingers) - works simultaneously with other gestures
-  // 2. Drag (1 finger on image, manual activation) - highest priority for single finger
-  // 3. Pan (1 finger, waits for drag to fail, requires movement) - for board panning
-  // 4. Tap (1 finger, waits for drag/pan to fail) - for image selection
+  // 2. Drag (1 finger on selected image, manual activation) - highest priority
+  // 3. Pan (1 finger, requires movement > minDistance) - for board panning
+  // 4. Tap (1 finger, quick release) - for image selection
   //
   // Composition strategy:
   // - Zoom uses Simultaneous() so it can work alongside drag/pan when 2 fingers are used
-  // - Drag uses manual activation - checks immediately in onTouchesDown
-  // - Pan waits for drag to fail (via waitFor or natural Race behavior)
-  // - Tap waits for both drag and pan to fail
+  // - Drag uses manual activation - checks immediately in onTouchesDown, fails if no selected image
+  // - Pan and Tap are in Exclusive() - only one can activate
+  //   - Pan requires minDistance(10px) movement, so quick taps won't trigger pan
+  //   - Tap requires maxDistance(15px) and maxDuration(200ms), so it works for quick taps
+  // - Race between Drag and (Pan|Tap) ensures drag wins when on selected image
   //
   // This ensures:
   // - 2 fingers -> Zoom activates (can work with drag if dragging with 2 fingers)
-  // - 1 finger on image -> Drag wins
+  // - 1 finger on selected image -> Drag wins (manual activation)
   // - 1 finger elsewhere, move > minDistance -> Pan wins
-  // - 1 finger elsewhere, quick release -> Tap wins
-  const singleFingerGestures = Gesture.Race(
-    dragGesture,
-    panGestureWithConfig,
-    tapGesture
-  );
+  // - 1 finger elsewhere, quick release -> Tap wins (pan won't activate due to minDistance)
+  const panOrTap = Gesture.Exclusive(panGestureWithConfig, tapGesture);
+  const singleFingerGestures = Gesture.Race(dragGesture, panOrTap);
 
   // Compose zoom (simultaneous) with single-finger gestures (race)
   const composedGesture = Gesture.Simultaneous(

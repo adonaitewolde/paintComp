@@ -20,7 +20,7 @@ export const SELECTED_BORDER_WIDTH = 3; // Breite des Auswahl-Rahmens
 
 // ===== GESTEN KONSTANTEN =====
 export const TAP_MAX_DURATION = 200; // Maximale Dauer für Tap-Geste (ms)
-export const TAP_MAX_DISTANCE = 10; // Maximale Distanz für Tap-Geste (px)
+export const TAP_MAX_DISTANCE = 15; // Maximale Distanz für Tap-Geste (px) - erhöht für bessere Zuverlässigkeit
 export const PAN_MIN_DISTANCE = 10; // Minimale Distanz für Pan-Aktivierung (px)
 
 // ===== DATENBANK STANDARDWERTE =====
