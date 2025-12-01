@@ -31,23 +31,7 @@ export const initDatabase = async () => {
       );
 
       CREATE INDEX IF NOT EXISTS idx_images_boardId ON images(boardId);
-      
-      -- Migration: Add zIndex column if it doesn't exist (for existing databases)
-      -- SQLite doesn't support IF NOT EXISTS for ALTER TABLE ADD COLUMN
-      -- We'll handle this gracefully by trying to add it and ignoring if it exists
     `);
-
-    // Try to add zIndex column if it doesn't exist (migration for existing databases)
-    try {
-      await db.execAsync(`
-        ALTER TABLE images ADD COLUMN zIndex INTEGER DEFAULT 0;
-      `);
-    } catch (error: any) {
-      // Column already exists, ignore error
-      if (!error.message?.includes("duplicate column")) {
-        console.warn("Could not add zIndex column (may already exist):", error);
-      }
-    }
 
     console.log("Database initialized successfully");
   } catch (error) {
