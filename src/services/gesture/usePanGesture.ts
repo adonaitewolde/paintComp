@@ -12,8 +12,10 @@ export const usePanGesture = (
   translateY: SharedValue<number>,
   scale?: SharedValue<number>
 ) => {
-  const savedTranslateX = useSharedValue(translateX.value);
-  const savedTranslateY = useSharedValue(translateY.value);
+  // Initialize to 0 - values will be set in onStart worklet
+  // Don't read .value during render to avoid Reanimated warnings
+  const savedTranslateX = useSharedValue(0);
+  const savedTranslateY = useSharedValue(0);
 
   const panGesture = useMemo(
     () =>

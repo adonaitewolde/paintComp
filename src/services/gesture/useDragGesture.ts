@@ -95,8 +95,9 @@ export const useDragGesture = ({
   ]);
 
   // Handle drag end - sync position back to JS thread
+  // Position is read on UI thread and passed as parameter to avoid reading .value on JS thread
   const handleDragEnd = useCallback(
-    (imageIndex: number | null) => {
+    (imageIndex: number | null, x: number | null, y: number | null) => {
       if (!onImageMove || imageIndex === null || imageIndex < 0) {
         draggingImageIndex.value = null;
         dragStartScreenPos.value = null;
@@ -105,11 +106,10 @@ export const useDragGesture = ({
         return;
       }
 
-      const positions = imagePositions.value;
-      const pos = positions[imageIndex];
-      if (pos) {
+      // Position was already read on UI thread and passed as parameter
+      if (x !== null && y !== null) {
         // Sync final position back to JS thread
-        onImageMove(imageIndex, pos.x, pos.y);
+        onImageMove(imageIndex, x, y);
       }
 
       draggingImageIndex.value = null;
@@ -123,7 +123,6 @@ export const useDragGesture = ({
       dragStartScreenPos,
       dragStartImagePos,
       isDragging,
-      imagePositions,
     ]
   );
 
@@ -202,7 +201,21 @@ export const useDragGesture = ({
       .onEnd(() => {
         "worklet";
         const imageIndex = draggingImageIndex.value;
-        runOnJS(handleDragEnd)(imageIndex);
+
+        // Read position on UI thread before switching to JS thread
+        let x: number | null = null;
+        let y: number | null = null;
+        if (imageIndex !== null) {
+          const positions = imagePositions.value;
+          const pos = positions[imageIndex];
+          if (pos) {
+            x = pos.x;
+            y = pos.y;
+          }
+        }
+
+        // Pass position as parameter to avoid reading .value on JS thread
+        runOnJS(handleDragEnd)(imageIndex, x, y);
       });
   }, [
     checkDragStart,
