@@ -16,7 +16,7 @@ export const IMAGE_COMPRESSION_QUALITY = 0.7; // Komprimierungsqualität für Bi
 export const HEIC_COMPRESSION_QUALITY = 0.8; // Komprimierungsqualität für HEIC-Konvertierung
 
 // ===== BILD-LAYER KONSTANTEN =====
-export const SELECTED_BORDER_WIDTH = 3; // Breite des Auswahl-Rahmens
+export const SELECTED_BORDER_WIDTH = 5; // Breite des Auswahl-Rahmens
 
 // ===== GESTEN KONSTANTEN =====
 export const TAP_MAX_DURATION = 200; // Maximale Dauer für Tap-Geste (ms)
